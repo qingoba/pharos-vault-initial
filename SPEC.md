@@ -17,6 +17,7 @@ Web3 黑客松项目，为 Pharos 链构建资产管理与收益基础设施（V
 - 主题: 亮色主题
 - 主色调: 白色背景
 - 强调色: 蓝色 (#3B82F6 作为主蓝色)
+- Pharos 官方蓝色: #0111b9 (备选，待确认)
 - 仅支持桌面端
 
 ---
@@ -292,6 +293,98 @@ src/
 - [ ] Task 7.1: Deposit 交易逻辑
 - [ ] Task 7.2: Withdraw 交易逻辑
 - [ ] Task 7.3: 读取用户真实持仓
+
+---
+
+## 合约接口需求
+
+### 1. 读取数据（展示 Vault 信息）
+
+#### Vault 基础信息
+| 数据 | 合约方法 | 说明 |
+|------|----------|------|
+| Vault 名称 | `name()` | ERC20 标准 |
+| 底层资产地址 | `asset()` | ERC4626 标准 |
+| TVL | `totalAssets()` | ERC4626 标准 |
+| 总份额 | `totalSupply()` | ERC20 标准 |
+| 管理费 | `managementFee()` | 自定义 |
+| 收益费 | `performanceFee()` | 自定义 |
+
+#### 策略信息
+| 数据 | 合约方法 | 说明 |
+|------|----------|------|
+| 策略列表 | `getStrategies()` | 返回策略地址数组 |
+| 策略分配比例 | `strategyAllocation(address)` | 每个策略的资金占比 |
+| 策略 APR | 需链下计算或预言机 | 基于历史收益 |
+| 最大回撤 | 需链下计算 | 基于历史数据 |
+
+#### Harvest 历史
+| 数据 | 来源 | 说明 |
+|------|------|------|
+| Harvest 记录 | 事件 `Harvested(strategy, amount, timestamp)` | 通过 event log 查询 |
+
+#### 用户持仓（Portfolio）
+| 数据 | 合约方法 | 说明 |
+|------|----------|------|
+| 用户份额 | `balanceOf(user)` | ERC20 标准 |
+| 份额对应价值 | `convertToAssets(shares)` | ERC4626 标准 |
+| 待领取收益 | `pendingRewards(user)` | 自定义（如有） |
+
+### 2. 写入操作（Deposit/Withdraw）
+
+#### Deposit
+```solidity
+// ERC4626 标准
+function deposit(uint256 assets, address receiver) returns (uint256 shares)
+
+// 前置：用户需 approve Vault 合约
+IERC20(asset).approve(vaultAddress, amount)
+```
+
+#### Withdraw
+```solidity
+// ERC4626 标准
+function withdraw(uint256 assets, address receiver, address owner) returns (uint256 shares)
+// 或按份额赎回
+function redeem(uint256 shares, address receiver, address owner) returns (uint256 assets)
+```
+
+### 3. 最小 ABI 接口
+
+```solidity
+interface IVault {
+    // ERC4626 标准
+    function asset() external view returns (address);
+    function totalAssets() external view returns (uint256);
+    function deposit(uint256 assets, address receiver) external returns (uint256);
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256);
+    function redeem(uint256 shares, address receiver, address owner) external returns (uint256);
+    function convertToAssets(uint256 shares) external view returns (uint256);
+    function convertToShares(uint256 assets) external view returns (uint256);
+    
+    // ERC20 标准
+    function name() external view returns (string memory);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    
+    // 自定义扩展
+    function managementFee() external view returns (uint256);
+    function performanceFee() external view returns (uint256);
+    function getStrategies() external view returns (address[] memory);
+    
+    // 事件
+    event Harvested(address indexed strategy, uint256 amount, uint256 timestamp);
+}
+```
+
+### 4. 链下计算数据
+
+| 数据 | 处理方式 |
+|------|----------|
+| APR | 根据 Harvest 事件计算历史收益率 |
+| Total Earnings | 累加所有 Harvest 金额 |
+| 最大回撤 | 根据历史 TVL 变化计算 |
+| 用户已实现收益 | 追踪用户 Deposit/Withdraw 事件计算 |
 
 ---
 
