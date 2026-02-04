@@ -296,6 +296,83 @@ src/
 
 ---
 
+## 数据获取方案
+
+> 注意：本项目不使用链下数据库，静态配置和计算结果直接在前端维护。
+
+### 数据来源分类
+
+#### 1. 直接链上读取
+通过合约调用实时获取：
+- `name()`, `asset()`, `totalAssets()`, `totalSupply()`, `balanceOf()`, `convertToAssets()`
+- `managementFee()`, `performanceFee()`, `getStrategies()`, `strategyAllocation()`
+
+#### 2. 事件日志查询
+通过 RPC 查询历史事件：
+- `Harvested(strategy, amount, timestamp)` → Harvest 历史、总收益
+- `Deposit(sender, owner, assets, shares)` → 用户存入记录
+- `Withdraw(sender, receiver, owner, assets, shares)` → 用户取出记录
+
+#### 3. 前端静态配置
+在前端代码中维护（如 `data/config.ts`）：
+- Vault 地址列表
+- Vault 图标、描述文案
+- 资产证明链接
+- Token 图标映射
+
+#### 4. 前端计算
+基于链上数据和事件在前端实时计算：
+- APR：基于 Harvest 事件历史和 TVL
+- 总收益：累加 Harvested 事件金额
+- 最大回撤：基于历史 TVL 变化
+- 用户已实现收益：Deposit/Withdraw 事件差值计算
+
+### 页面数据映射
+
+#### Dashboard 页面
+| 数据 | 获取方式 |
+|------|----------|
+| 总 TVL | 遍历 Vault 调用 `totalAssets()` 求和 |
+| 平均 APR | 前端计算：各 Vault APR 加权平均 |
+| Vault 数量 | 前端配置的 Vault 地址列表长度 |
+
+#### Vault 列表页面
+| 数据 | 获取方式 |
+|------|----------|
+| Vault 名称 | `vault.name()` |
+| Vault 图标 | 前端配置 |
+| Token 地址 | `vault.asset()` |
+| 合约地址 | 前端配置 |
+| APR | 前端计算 |
+| TVL | `vault.totalAssets()` |
+| 总收益 | 前端计算：累加 `Harvested` 事件 |
+
+#### Vault 详情页面
+| 数据 | 获取方式 |
+|------|----------|
+| 管理费 | `vault.managementFee()` |
+| 收益费 | `vault.performanceFee()` |
+| 描述 | 前端配置 |
+| 策略列表 | `vault.getStrategies()` |
+| 策略分配 | `vault.strategyAllocation(addr)` |
+| 策略 APR | 前端计算 |
+| 上次收益 | 最近 `Harvested` 事件 |
+| 最大回撤 | 前端计算 |
+| 资产证明 | 前端配置 |
+| Harvest 历史 | 查询 `Harvested` 事件日志 |
+
+#### Portfolio 页面
+| 数据 | 获取方式 |
+|------|----------|
+| 用户份额 | `vault.balanceOf(user)` |
+| 当前价值 | `vault.convertToAssets(shares)` |
+| 存入价值 | 前端计算：追踪 `Deposit` 事件 |
+| 已实现收益 | 前端计算：追踪事件差值 |
+| 待领取收益 | `vault.pendingRewards(user)` 或前端计算 |
+| 自动复投 | 前端配置或合约状态 |
+
+---
+
 ## 合约接口需求
 
 ### 1. 读取数据（展示 Vault 信息）
