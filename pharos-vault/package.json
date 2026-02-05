@@ -7,9 +7,11 @@
     "test": "npx hardhat test",
     "test:coverage": "npx hardhat coverage",
     "deploy:local": "npx hardhat run scripts/deploy.ts --network localhost",
-    "deploy:testnet": "npx hardhat run scripts/deploy.ts --network sepolia",
+    "deploy:pharos-testnet": "npx hardhat run scripts/deploy-pharos-testnet.ts --network pharosTestnet",
+    "deploy:pharos": "npx hardhat run scripts/deploy.ts --network pharos",
     "node": "npx hardhat node",
-    "clean": "npx hardhat clean"
+    "clean": "npx hardhat clean",
+    "verify": "npx hardhat verify --network pharosTestnet"
   },
   "keywords": [
     "vault",
@@ -24,6 +26,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^4.0.0",
     "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.3.1",
     "hardhat": "^2.19.0",
     "typescript": "^5.3.0",
     "ts-node": "^10.9.0",
