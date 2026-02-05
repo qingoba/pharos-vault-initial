@@ -1,0 +1,39 @@
+# Dependency directories
+node_modules/
+
+# Build output
+artifacts/
+cache/
+typechain-types/
+dist/
+
+# Coverage
+coverage/
+coverage.json
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Hardhat
+deployments/localhost/
+
+# Misc
+.eslintcache
+*.tsbuildinfo
