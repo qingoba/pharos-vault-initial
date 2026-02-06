@@ -8,7 +8,10 @@
     "test:coverage": "npx hardhat coverage",
     "deploy:local": "npx hardhat run scripts/deploy.ts --network localhost",
     "deploy:pharos-testnet": "npx hardhat run scripts/deploy-pharos-testnet.ts --network pharosTestnet",
+    "deploy:sepolia": "npx hardhat run scripts/deploy-pharos-testnet.ts --network sepolia",
     "deploy:pharos": "npx hardhat run scripts/deploy.ts --network pharos",
+    "simulate:yield": "npx hardhat run scripts/simulate-yield.ts --network sepolia",
+    "simulate:yield:pharos": "npx hardhat run scripts/simulate-yield.ts --network pharosTestnet",
     "node": "npx hardhat node",
     "clean": "npx hardhat clean",
     "verify": "npx hardhat verify --network pharosTestnet"

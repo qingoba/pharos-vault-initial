@@ -1,6 +1,9 @@
 # Pharos Vault - 测试网部署完整教程
 
-本文档提供了在 Pharos 测试网上部署 Pharos Vault 的详细步骤。
+本文档提供了在测试网上部署 Pharos Vault 的详细步骤。支持两个测试网：
+
+- **Pharos Testnet** - Pharos 官方测试网（推荐用于正式提交）
+- **Sepolia Testnet** - 以太坊 Sepolia 测试网（用于开发测试）
 
 ## 目录
 
@@ -42,7 +45,7 @@ npm install
 
 ### 1.3 配置 MetaMask 钱包
 
-在 MetaMask 中添加 Pharos 测试网：
+#### 方式一：Pharos Testnet（官方测试网）
 
 | 配置项 | 值 |
 |--------|------|
@@ -51,6 +54,18 @@ npm install
 | **Chain ID** | 688689 |
 | **货币符号** | PTT |
 | **区块浏览器** | https://testnet.pharosscan.xyz |
+
+#### 方式二：Sepolia Testnet（以太坊测试网）
+
+| 配置项 | 值 |
+|--------|------|
+| **网络名称** | Sepolia |
+| **RPC URL** | https://ethereum-sepolia-rpc.publicnode.com |
+| **Chain ID** | 11155111 |
+| **货币符号** | ETH |
+| **区块浏览器** | https://sepolia.etherscan.io |
+
+> 💡 **提示：** Sepolia 是以太坊官方测试网，MetaMask 通常已内置支持，只需在网络列表中启用即可。
 
 **添加步骤：**
 1. 打开 MetaMask
@@ -63,7 +78,7 @@ npm install
 
 ## 2. 获取测试网代币
 
-### 2.1 获取测试网 ETH (PTT)
+### 2.1 获取 Pharos 测试网代币 (PTT)
 
 你需要测试网原生代币来支付 Gas 费用。获取方式：
 
@@ -77,6 +92,18 @@ npm install
 
 **方式三：联系团队**
 - 如果是黑客松参赛者，可联系组织方获取测试代币
+
+### 2.2 获取 Sepolia 测试网代币 (SepoliaETH)
+
+如果使用 Sepolia 测试网，可以从以下水龙头获取：
+
+**推荐水龙头：**
+- [Alchemy Sepolia Faucet](https://sepoliafaucet.com/) - 需要 Alchemy 账号
+- [Infura Sepolia Faucet](https://www.infura.io/faucet/sepolia) - 需要 Infura 账号
+- [QuickNode Sepolia Faucet](https://faucet.quicknode.com/ethereum/sepolia)
+- [Google Cloud Sepolia Faucet](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
+
+> 💡 **提示：** Sepolia 水龙头通常每 24 小时可领取一次，建议提前准备。
 
 ### 2.2 获取私钥
 
@@ -121,6 +148,9 @@ PHAROS_TESTNET_RPC_URL=https://testnet.dplabs-internal.com
 # Pharos 主网 RPC URL（暂不使用）
 PHAROS_RPC_URL=https://rpc.pharos.xyz
 
+# Sepolia 测试网 RPC URL
+SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+
 # 区块浏览器 API Key（可选，用于验证合约）
 PHAROS_API_KEY=your_api_key_here
 ```
@@ -146,9 +176,15 @@ Compiled 10 Solidity files successfully
 ```bash
 cd pharos-vault
 
-# 部署到 Pharos 测试网
+# 部署到 Pharos 测试网（推荐用于正式提交）
 npm run deploy:pharos-testnet
+
+# 或者部署到 Sepolia 测试网（用于开发测试）
+npm run deploy:sepolia
 ```
+
+> 💡 **推荐使用 Sepolia：** 如果 Pharos 测试网部署遇到问题，可以先使用 Sepolia 进行开发测试。
+> Sepolia 是以太坊官方测试网，稳定性更好，适合快速迭代开发。
 
 ### 4.2 部署过程说明
 
@@ -164,6 +200,7 @@ npm run deploy:pharos-testnet
 
 ### 4.3 预期输出
 
+**Pharos Testnet:**
 ```
 =====================================================
      Pharos Vault - Testnet Deployment Script
@@ -212,6 +249,14 @@ Contract Addresses:
 ✓ Frontend addresses updated successfully!
 ```
 
+**Sepolia Testnet:**
+```
+Network: sepolia (Chain ID: 11155111)
+Deployer: 0xYourAddress...
+Balance: 0.2 ETH
+...
+```
+
 ### 4.4 保存合约地址
 
 部署完成后，合约地址会：
@@ -251,6 +296,8 @@ npm run dev
 
 打开浏览器访问：http://localhost:3000
 
+真实数据：http://localhost:3000/vault/live
+
 ---
 
 ## 6. 测试功能
@@ -286,7 +333,73 @@ npm run dev
 2. 或点击 "🌾 Harvest All" 收获所有策略
 3. 收益会自动复投
 
-### 6.6 提款测试
+### 6.6 模拟收益（测试环境）
+
+由于测试网上策略不会真正产生收益，我们提供了脚本来模拟收益产生。
+
+#### 方式一：使用命令行脚本（推荐）
+
+```bash
+cd pharos-vault
+
+# Sepolia 测试网
+npm run simulate:yield
+
+# Pharos 测试网
+npm run simulate:yield:pharos
+```
+
+脚本会自动：
+1. 铸造 USDC 作为模拟收益
+2. 注入收益到策略合约
+3. 触发 harvestAll 收割收益
+
+#### 方式二：使用 Hardhat Console
+
+```bash
+cd pharos-vault
+npx hardhat console --network sepolia
+```
+
+然后在控制台执行：
+
+```javascript
+// 获取合约
+const vault = await ethers.getContractAt("PharosVault", "0x666057e10bd322189Fa65EE94Ad889717F1FB6c7");
+const usdc = await ethers.getContractAt("MockUSDC", "0x4a0EDB585AB395A901Ce8EF9433Bbc27e4ed1453");
+const rwaStrategy = await ethers.getContractAt("MockRWAYieldStrategy", "0xCd57578e511d628E4542712233a5275DcDf51839");
+
+// 检查当前状态
+const totalAssets = await vault.totalAssets();
+console.log("Total Assets:", ethers.formatUnits(totalAssets, 6), "USDC");
+
+// 铸造并注入收益 (100 USDC 模拟收益)
+const yieldAmount = ethers.parseUnits("100", 6);
+await usdc.mint((await ethers.getSigners())[0].address, yieldAmount);
+await usdc.approve(await rwaStrategy.getAddress(), yieldAmount);
+await rwaStrategy.injectYield(yieldAmount);
+
+// 触发收割
+await vault.harvestAll();
+
+// 查看新的总资产
+const newTotalAssets = await vault.totalAssets();
+console.log("New Total Assets:", ethers.formatUnits(newTotalAssets, 6), "USDC");
+```
+
+#### 收益机制说明
+
+| 策略 | 模拟 APY | 收益来源 |
+|------|---------|---------|
+| MockRWAYieldStrategy | 5% | yieldProvider 地址提供，或通过 injectYield() 注入 |
+| SimpleLendingStrategy | 3% | 类似机制 |
+
+**真实环境 vs 测试环境：**
+
+- **真实环境：** 策略会与 Ondo Finance、Backed Finance 等 RWA 协议集成，自动产生收益
+- **测试环境：** 需要手动注入 USDC 模拟收益，然后调用 harvest 收割
+
+### 6.7 提款测试
 
 1. 选择 "Withdraw" 标签
 2. 输入提款金额
@@ -326,10 +439,19 @@ npm run dev
 
 **解决：**
 1. 检查网络配置是否正确
-2. Chain ID 应为 688689
-3. RPC URL 应为 https://testnet.dplabs-internal.com
+2. Pharos Testnet: Chain ID 应为 688689，RPC URL 应为 https://testnet.dplabs-internal.com
+3. Sepolia: Chain ID 应为 11155111，RPC URL 应为 https://ethereum-sepolia-rpc.publicnode.com
 
-### Q5: 交易失败 "execution reverted"
+### Q5: Pharos 测试网部署失败
+
+**原因：** Pharos 测试网可能有特殊的部署限制
+
+**解决：**
+1. 先使用 Sepolia 测试网进行开发：`npm run deploy:sepolia`
+2. 联系 Hackathon 组织方咨询 Pharos 测试网的部署权限
+3. 确认账户是否需要白名单
+
+### Q6: 交易失败 "execution reverted"
 
 **原因：** 合约执行失败，可能是参数错误或状态不满足
 
@@ -338,7 +460,7 @@ npm run dev
 2. 确保有足够的代币余额
 3. 检查是否已 Approve
 
-### Q6: 如何验证合约？
+### Q7: 如何验证合约？
 
 ```bash
 cd pharos-vault

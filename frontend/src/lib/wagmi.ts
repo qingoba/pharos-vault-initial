@@ -1,4 +1,5 @@
 import { http, createConfig } from 'wagmi';
+import { sepolia } from 'wagmi/chains';
 import { defineChain } from 'viem';
 
 // Pharos Testnet Configuration
@@ -39,9 +40,10 @@ export const localhost = defineChain({
 });
 
 export const config = createConfig({
-  chains: [pharosTestnet, pharos, localhost],
+  chains: [pharosTestnet, sepolia, pharos, localhost],
   transports: {
     [pharosTestnet.id]: http(),
+    [sepolia.id]: http('https://sepolia.infura.io/v3/f4b1765357b1449e84efc12dcdbc502d'),
     [pharos.id]: http(),
     [localhost.id]: http(),
   },

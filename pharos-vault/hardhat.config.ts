@@ -29,7 +29,9 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 688689,
       gas: 8000000,
-      gasPrice: 20000000000, // 20 gwei - increase for safety
+      // Use EIP-1559 gas settings
+      maxFeePerGas: 50000000000, // 50 gwei
+      maxPriorityFeePerGas: 2000000000, // 2 gwei
       timeout: 120000, // 2 minute timeout for large deployments
     },
     // Pharos Mainnet (for future use)
@@ -37,6 +39,12 @@ const config: HardhatUserConfig = {
       url: process.env.PHAROS_RPC_URL || "https://rpc.pharos.xyz",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 1672,
+    },
+    // Sepolia Testnet
+    sepolia: {
+      url: process.env.SEPOLIA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 11155111,
     },
   },
   paths: {

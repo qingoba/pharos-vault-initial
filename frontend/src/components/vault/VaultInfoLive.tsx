@@ -78,6 +78,11 @@ export function VaultInfoLive() {
     ? `$${(tvlNumber / 1000).toFixed(2)}K`
     : `$${tvlNumber.toFixed(2)}`;
 
+  // If actual APY is 0, show target APY
+  // Target APY: RWA = 5%, Lending = 3%, weighted average ≈ 4%
+  const displayApr = parseFloat(apr) > 0 ? apr : '4.00';
+  const isTargetApy = parseFloat(apr) === 0;
+
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl">
       <div className="flex items-center mb-4">
@@ -136,8 +141,8 @@ export function VaultInfoLive() {
         </div>
         <div className="p-3 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-500">Estimated APY</p>
-          <p className="text-xl font-bold text-[var(--primary)]">{apr}%</p>
-          <p className="text-xs text-gray-400">Based on performance</p>
+          <p className="text-xl font-bold text-[var(--primary)]">{displayApr}%</p>
+          <p className="text-xs text-gray-400">{isTargetApy ? 'Target (no history yet)' : 'Based on performance'}</p>
         </div>
         <div className="p-3 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-500">Management Fee</p>

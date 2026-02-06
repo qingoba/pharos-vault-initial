@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { injected } from 'wagmi/connectors';
 
@@ -8,10 +9,17 @@ export function Header() {
   const { address, isConnected } = useAccount();
   const { connect } = useConnect();
   const { disconnect } = useDisconnect();
+  const [mounted, setMounted] = useState(false);
+
+  // Prevent hydration mismatch by only rendering wallet state after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const navItems = [
     { href: '/', label: 'Dashboard' },
-    { href: '/vault', label: 'Vault' },
+    { href: '/vault/live', label: 'Live Vault' },
+    { href: '/vault/usdc-vault', label: 'Demo Vault' },
     { href: '/portfolio', label: 'Portfolio' },
   ];
 
@@ -34,7 +42,9 @@ export function Header() {
           ))}
         </nav>
 
-        {isConnected ? (
+        {!mounted ? (
+          <div className="px-4 py-2 bg-gray-100 rounded-lg text-sm w-32 h-9 animate-pulse" />
+        ) : isConnected ? (
           <button
             onClick={() => disconnect()}
             className="px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200 transition-colors"

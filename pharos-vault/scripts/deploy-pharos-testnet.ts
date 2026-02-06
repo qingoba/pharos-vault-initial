@@ -71,12 +71,17 @@ async function main() {
   });
   console.log("  Estimated gas:", estimatedGas.toString());
   
+  // Get current gas price from network
+  const feeData = await ethers.provider.getFeeData();
+  const gasPrice = feeData.gasPrice || 10000000000n; // Default 10 gwei
+  console.log("  Gas price:", (gasPrice / 1000000000n).toString(), "gwei");
+  
   // Send the deployment transaction manually
   console.log("  Sending deployment transaction...");
   const tx = await deployer.sendTransaction({
     data: deployTx.data,
-    gasLimit: estimatedGas * 150n / 100n, // 50% buffer
-    gasPrice: 20000000000n, // 20 gwei
+    gasLimit: estimatedGas * 120n / 100n, // 20% buffer
+    gasPrice: gasPrice,
   });
   console.log("  Tx hash:", tx.hash);
   console.log("  Waiting for confirmation...");
@@ -169,15 +174,21 @@ async function main() {
     "../../frontend/src/lib/contracts/addresses.ts"
   );
 
+  // Determine which contract block to update based on chain ID
+  const chainId = network.chainId;
+  const isSepolia = chainId === 11155111n;
+  const contractBlockName = isSepolia ? 'SEPOLIA_CONTRACTS' : 'PHAROS_TESTNET_CONTRACTS';
+  const networkLabel = isSepolia ? 'Sepolia' : 'Pharos Testnet';
+
   try {
     let content = fs.readFileSync(frontendAddressesPath, 'utf8');
     
-    // Update PHAROS_TESTNET_CONTRACTS
-    const newTestnetContracts = `export const PHAROS_TESTNET_CONTRACTS = {
+    // Build the new contract block
+    const newContractsBlock = `export const ${contractBlockName} = {
   // Core Token
   USDC: '${usdcAddress}' as \`0x\${string}\`,
   
-  // Vault
+  // Vault${isSepolia ? '' : ''}
   PharosVault: '${vaultAddress}' as \`0x\${string}\`,
   
   // Strategies
@@ -185,19 +196,17 @@ async function main() {
   SimpleLendingStrategy: '${lendingStrategyAddress}' as \`0x\${string}\`,
 } as const;`;
 
-    // Use regex to replace the PHAROS_TESTNET_CONTRACTS block
-    content = content.replace(
-      /export const PHAROS_TESTNET_CONTRACTS = \{[\s\S]*?\} as const;/,
-      newTestnetContracts
-    );
+    // Use regex to replace the appropriate contracts block
+    const regex = new RegExp(`export const ${contractBlockName} = \\{[\\s\\S]*?\\} as const;`);
+    content = content.replace(regex, newContractsBlock);
 
     fs.writeFileSync(frontendAddressesPath, content);
-    console.log("✓ Frontend addresses updated successfully!");
+    console.log(`✓ Frontend ${networkLabel} addresses updated successfully!`);
     console.log("  File:", frontendAddressesPath);
   } catch (error) {
     console.log("⚠ Could not auto-update frontend config. Please manually update:");
     console.log("  File: frontend/src/lib/contracts/addresses.ts");
-    console.log("\n  Copy these addresses to PHAROS_TESTNET_CONTRACTS:");
+    console.log(`\n  Copy these addresses to ${contractBlockName}:`);
     console.log(`    USDC: '${usdcAddress}'`);
     console.log(`    PharosVault: '${vaultAddress}'`);
     console.log(`    RWAYieldStrategy: '${rwaStrategyAddress}'`);
@@ -226,7 +235,8 @@ async function main() {
     fs.mkdirSync(deploymentPath, { recursive: true });
   }
 
-  const fileName = `pharos-testnet-${Date.now()}.json`;
+  const networkPrefix = isSepolia ? 'sepolia' : 'pharos-testnet';
+  const fileName = `${networkPrefix}-${Date.now()}.json`;
   fs.writeFileSync(
     path.join(deploymentPath, fileName),
     JSON.stringify(deploymentInfo, null, 2)
@@ -239,11 +249,22 @@ async function main() {
   console.log("=====================================================\n");
   console.log("1. Start the frontend:");
   console.log("   cd frontend && npm run dev");
-  console.log("\n2. Connect your wallet to Pharos Testnet");
-  console.log("   - Network Name: Pharos Testnet");
-  console.log("   - RPC URL: https://testnet.dplabs-internal.com");
-  console.log("   - Chain ID: 688688");
-  console.log("   - Currency Symbol: PTT");
+  
+  if (isSepolia) {
+    console.log("\n2. Connect your wallet to Sepolia");
+    console.log("   - Network Name: Sepolia");
+    console.log("   - RPC URL: https://ethereum-sepolia-rpc.publicnode.com");
+    console.log("   - Chain ID: 11155111");
+    console.log("   - Currency Symbol: ETH");
+    console.log("   - Explorer: https://sepolia.etherscan.io");
+  } else {
+    console.log("\n2. Connect your wallet to Pharos Testnet");
+    console.log("   - Network Name: Pharos Testnet");
+    console.log("   - RPC URL: https://testnet.dplabs-internal.com");
+    console.log("   - Chain ID: 688689");
+    console.log("   - Currency Symbol: PTT");
+  }
+  
   console.log("\n3. Get test tokens from the faucet or use mint function");
   console.log("\n4. Test the vault operations:");
   console.log("   - Approve USDC");

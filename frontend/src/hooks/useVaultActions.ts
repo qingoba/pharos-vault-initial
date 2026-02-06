@@ -5,10 +5,18 @@
  * Provides functions for deposit, withdraw, redeem, and approval
  */
 
-import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId } from 'wagmi';
+import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { useState, useCallback, useEffect } from 'react';
 import { PharosVaultABI, ERC20ABI, getContracts } from '@/lib/contracts';
+
+// Gas limits for different operations
+const GAS_LIMITS = {
+  approve: 100000n,
+  deposit: 300000n,
+  withdraw: 300000n,
+  redeem: 300000n,
+};
 
 export type TransactionStatus = 'idle' | 'approving' | 'pending' | 'confirming' | 'success' | 'error';
 
@@ -25,15 +33,19 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
+  const publicClient = usePublicClient();
   const vault = vaultAddress || contracts.PharosVault;
   
   const [txState, setTxState] = useState<TransactionState>({ status: 'idle' });
   
   // Get asset address
-  const { data: assetAddress } = useReadContract({
+  const { data: assetAddress, refetch: refetchAssetAddress } = useReadContract({
     address: vault,
     abi: PharosVaultABI,
     functionName: 'asset',
+    query: {
+      staleTime: 0,
+    },
   });
   
   // Get decimals
@@ -65,6 +77,9 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     args: [userAddress!],
     query: {
       enabled: !!assetAddress && !!userAddress,
+      staleTime: 0, // Always consider data stale
+      gcTime: 0, // Don't cache
+      refetchInterval: 5000, // Poll every 5 seconds
     },
   });
   
@@ -104,7 +119,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
    * Approve the vault to spend tokens
    */
   const approve = useCallback(async (amount?: string) => {
-    if (!assetAddress || !userAddress) {
+    if (!assetAddress || !userAddress || !publicClient) {
       throw new Error('Not connected or asset not loaded');
     }
     
@@ -120,7 +135,11 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
         abi: ERC20ABI,
         functionName: 'approve',
         args: [vault, amountToApprove],
+        gas: GAS_LIMITS.approve,
       });
+      
+      // Wait for transaction to be confirmed on chain
+      await publicClient.waitForTransactionReceipt({ hash });
       
       setTxState({ status: 'confirming', hash });
       return hash;
@@ -128,7 +147,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       setTxState({ status: 'error', error: error as Error });
       throw error;
     }
-  }, [assetAddress, userAddress, vault, decimals, writeApprove]);
+  }, [assetAddress, userAddress, vault, decimals, writeApprove, publicClient]);
   
   /**
    * Deposit assets into the vault
@@ -144,8 +163,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     if (allowance !== undefined && allowance < amountParsed) {
       setTxState({ status: 'approving' });
       await approve();
-      // Wait for approval to be confirmed
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Approval confirmation is now handled inside approve() with waitForTransactionReceipt
       await refetchAllowance();
     }
     
@@ -157,6 +175,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
         abi: PharosVaultABI,
         functionName: 'deposit',
         args: [amountParsed, userAddress],
+        gas: GAS_LIMITS.deposit,
       });
       
       setTxState({ status: 'confirming', hash });
@@ -185,6 +204,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
         abi: PharosVaultABI,
         functionName: 'withdraw',
         args: [amountParsed, userAddress, userAddress],
+        gas: GAS_LIMITS.withdraw,
       });
       
       setTxState({ status: 'confirming', hash });
@@ -213,6 +233,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
         abi: PharosVaultABI,
         functionName: 'redeem',
         args: [sharesParsed, userAddress, userAddress],
+        gas: GAS_LIMITS.redeem,
       });
       
       setTxState({ status: 'confirming', hash });
@@ -276,6 +297,10 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
         return false;
       }
     },
+    
+    // Refetch functions
+    refetchBalance,
+    refetchAllowance,
   };
 }
 

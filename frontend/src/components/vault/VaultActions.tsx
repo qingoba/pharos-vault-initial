@@ -10,9 +10,15 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
   const chainId = useChainId();
   const contracts = getContracts(chainId);
   
+  const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  // Handle hydration mismatch - only render wallet-dependent UI after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Contract hooks
   const {
@@ -28,6 +34,8 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
     hasEnoughAllowance,
     hasEnoughBalance,
     decimals,
+    refetchBalance,
+    assetAddress,
   } = useVaultActions(contracts.PharosVault);
 
   const { position, sharesFormatted, valueFormatted, refetch: refetchPosition } = useUserPosition(contracts.PharosVault);
@@ -94,6 +102,9 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
     try {
       setStatusMessage({ type: 'info', text: 'Minting test tokens...' });
       await mintTokens('10000'); // Mint 10,000 USDC
+      // Wait a bit for the transaction to be indexed, then refresh balance
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await refetchBalance();
       setStatusMessage({ type: 'success', text: 'Minted 10,000 test USDC!' });
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (error: unknown) {
@@ -112,6 +123,15 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
     }
   };
 
+  // Show loading skeleton during SSR/hydration to prevent mismatch
+  if (!mounted) {
+    return (
+      <div className="p-6 bg-gray-50 rounded-xl text-center text-gray-500">
+        Loading...
+      </div>
+    );
+  }
+
   if (!isConnected) {
     return (
       <div className="p-6 bg-gray-50 rounded-xl text-center text-gray-500">
@@ -124,6 +144,16 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
 
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl">
+      {/* Debug Info - Remove in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs font-mono">
+          <div>Vault: {contracts.PharosVault}</div>
+          <div>Asset from vault: {assetAddress || 'Loading...'}</div>
+          <div>Expected USDC: {contracts.USDC}</div>
+          <div>Balance: {assetBalanceFormatted}</div>
+        </div>
+      )}
+      
       {/* Contract Status Warning */}
       {!isValidContract && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">

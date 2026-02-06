@@ -6,6 +6,7 @@
  * This page uses the new live components connected to smart contracts
  */
 
+import { useState, useEffect } from 'react';
 import { VaultInfoLive } from '@/components/vault/VaultInfoLive';
 import { StrategyListLive } from '@/components/vault/StrategyListLive';
 import { UserPositionLive } from '@/components/vault/UserPositionLive';
@@ -14,10 +15,30 @@ import { useChainId } from 'wagmi';
 import { getContracts } from '@/lib/contracts';
 
 export default function LiveVaultPage() {
+  const [mounted, setMounted] = useState(false);
   const chainId = useChainId();
   const contracts = getContracts(chainId);
   
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
   const isValidContract = contracts.PharosVault !== '0x0000000000000000000000000000000000000000';
+
+  // Get network name
+  const getNetworkName = () => {
+    if (!mounted) return 'Loading...';
+    if (chainId === 688689) return 'Pharos Testnet';
+    if (chainId === 1672) return 'Pharos Mainnet';
+    if (chainId === 11155111) return 'Sepolia Testnet';
+    return `Chain ${chainId}`;
+  };
+
+  // Get explorer URL
+  const getExplorerUrl = () => {
+    if (chainId === 11155111) return `https://sepolia.etherscan.io/address/${contracts.PharosVault}`;
+    return `https://testnet.pharosscan.xyz/address/${contracts.PharosVault}`;
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
@@ -26,12 +47,12 @@ export default function LiveVaultPage() {
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
           <span className="text-sm text-blue-700">
-            Connected to {chainId === 688688 ? 'Pharos Testnet' : chainId === 1672 ? 'Pharos Mainnet' : `Chain ${chainId}`}
+            Connected to {getNetworkName()}
           </span>
         </div>
-        {isValidContract && (
+        {isValidContract && mounted && (
           <a
-            href={`https://testnet.pharosscan.xyz/address/${contracts.PharosVault}`}
+            href={getExplorerUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[var(--primary)] hover:underline"
