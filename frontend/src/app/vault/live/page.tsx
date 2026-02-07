@@ -85,7 +85,7 @@ export default function LiveVaultPage() {
   // Get explorer URL
   const getExplorerUrl = () => {
     if (chainId === 11155111) return `https://sepolia.etherscan.io/address/${contracts.PharosVault}`;
-    return `https://testnet.pharosscan.xyz/address/${contracts.PharosVault}`;
+    return `https://atlantic.pharosscan.xyz/address/${contracts.PharosVault}`;
   };
 
   return (
@@ -135,7 +135,7 @@ export default function LiveVaultPage() {
               <span className="text-gray-500">PharosVault:</span>
               <span className="font-mono text-xs">
                 <a
-                  href={`https://testnet.pharosscan.xyz/address/${contracts.PharosVault}`}
+                  href={`https://atlantic.pharosscan.xyz/address/${contracts.PharosVault}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--primary)] hover:underline"
@@ -148,7 +148,7 @@ export default function LiveVaultPage() {
               <span className="text-gray-500">USDC:</span>
               <span className="font-mono text-xs">
                 <a
-                  href={`https://testnet.pharosscan.xyz/address/${contracts.USDC}`}
+                  href={`https://atlantic.pharosscan.xyz/address/${contracts.USDC}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--primary)] hover:underline"
@@ -161,7 +161,7 @@ export default function LiveVaultPage() {
               <span className="text-gray-500">RWA Strategy:</span>
               <span className="font-mono text-xs">
                 <a
-                  href={`https://testnet.pharosscan.xyz/address/${contracts.RWAYieldStrategy}`}
+                  href={`https://atlantic.pharosscan.xyz/address/${contracts.RWAYieldStrategy}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--primary)] hover:underline"
@@ -174,7 +174,7 @@ export default function LiveVaultPage() {
               <span className="text-gray-500">Lending Strategy:</span>
               <span className="font-mono text-xs">
                 <a
-                  href={`https://testnet.pharosscan.xyz/address/${contracts.SimpleLendingStrategy}`}
+                  href={`https://atlantic.pharosscan.xyz/address/${contracts.SimpleLendingStrategy}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-[var(--primary)] hover:underline"

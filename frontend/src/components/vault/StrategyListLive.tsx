@@ -127,7 +127,7 @@ function StrategyCard({ strategyAddress, vaultAddress }: StrategyCardProps) {
       {txState.hash && (
         <div className="mt-2 text-xs text-center">
           <a
-            href={`https://testnet.pharosscan.xyz/tx/${txState.hash}`}
+            href={`https://atlantic.pharosscan.xyz/tx/${txState.hash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--primary)] hover:underline"
@@ -203,7 +203,7 @@ export function StrategyListLive() {
         <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
           <p className="text-green-700">Harvest All transaction submitted!</p>
           <a
-            href={`https://testnet.pharosscan.xyz/tx/${harvestAllState.hash}`}
+            href={`https://atlantic.pharosscan.xyz/tx/${harvestAllState.hash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--primary)] hover:underline text-xs"

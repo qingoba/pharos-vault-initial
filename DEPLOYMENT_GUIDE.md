@@ -52,10 +52,10 @@ npm install
 | 配置项 | 值 |
 |--------|------|
 | **网络名称** | Pharos Testnet |
-| **RPC URL** | https://testnet.dplabs-internal.com |
+| **RPC URL** | https://atlantic.dplabs-internal.com |
 | **Chain ID** | 688689 |
 | **货币符号** | PTT |
-| **区块浏览器** | https://testnet.pharosscan.xyz |
+| **区块浏览器** | https://atlantic.pharosscan.xyz |
 
 #### 方式二：Sepolia Testnet（以太坊测试网）
 
@@ -131,7 +131,7 @@ npm install
 cd pharos-vault
 
 # 复制示例文件
-cp .env.example .env
+cp .env .env
 
 # 编辑 .env 文件
 ```
@@ -145,7 +145,7 @@ cp .env.example .env
 PRIVATE_KEY=your_private_key_here
 
 # Pharos 测试网 RPC URL
-PHAROS_TESTNET_RPC_URL=https://testnet.dplabs-internal.com
+PHAROS_TESTNET_RPC_URL=https://atlantic.dplabs-internal.com
 
 # Pharos 主网 RPC URL（暂不使用）
 PHAROS_RPC_URL=https://rpc.pharos.xyz
@@ -810,7 +810,7 @@ console.log("RWA shares held:", shares.toString());
 
 **解决：**
 1. 检查网络配置是否正确
-2. Pharos Testnet: Chain ID 应为 688689，RPC URL 应为 https://testnet.dplabs-internal.com
+2. Pharos Testnet: Chain ID 应为 688689，RPC URL 应为 https://atlantic.dplabs-internal.com
 3. Sepolia: Chain ID 应为 11155111，RPC URL 应为 https://ethereum-sepolia-rpc.publicnode.com
 
 ### Q5: Pharos 测试网部署失败

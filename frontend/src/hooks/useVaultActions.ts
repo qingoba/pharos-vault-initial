@@ -39,7 +39,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
   const [txState, setTxState] = useState<TransactionState>({ status: 'idle' });
   
   // Get asset address
-  const { data: assetAddress, refetch: refetchAssetAddress } = useReadContract({
+  const { data: assetAddress, refetch: refetchAssetAddress, error: assetError, isLoading: assetLoading } = useReadContract({
     address: vault,
     abi: PharosVaultABI,
     functionName: 'asset',
@@ -48,8 +48,20 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     },
   });
   
+  // Debug: Log asset address fetch
+  useEffect(() => {
+    console.log('[useVaultActions] Debug Info:', {
+      chainId,
+      vault,
+      userAddress,
+      assetAddress,
+      assetError: assetError?.message,
+      assetLoading,
+    });
+  }, [chainId, vault, userAddress, assetAddress, assetError, assetLoading]);
+  
   // Get decimals
-  const { data: decimals } = useReadContract({
+  const { data: decimals, error: decimalsError } = useReadContract({
     address: assetAddress as `0x${string}`,
     abi: ERC20ABI,
     functionName: 'decimals',
@@ -58,8 +70,19 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     },
   });
   
+  // Debug: Log decimals
+  useEffect(() => {
+    if (assetAddress) {
+      console.log('[useVaultActions] Decimals:', {
+        assetAddress,
+        decimals,
+        decimalsError: decimalsError?.message,
+      });
+    }
+  }, [assetAddress, decimals, decimalsError]);
+  
   // Check current allowance
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+  const { data: allowance, refetch: refetchAllowance, error: allowanceError } = useReadContract({
     address: assetAddress as `0x${string}`,
     abi: ERC20ABI,
     functionName: 'allowance',
@@ -70,7 +93,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
   });
   
   // Check user's asset balance
-  const { data: assetBalance, refetch: refetchBalance } = useReadContract({
+  const { data: assetBalance, refetch: refetchBalance, error: balanceError, isLoading: balanceLoading } = useReadContract({
     address: assetAddress as `0x${string}`,
     abi: ERC20ABI,
     functionName: 'balanceOf',
@@ -82,6 +105,21 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       refetchInterval: 5000, // Poll every 5 seconds
     },
   });
+  
+  // Debug: Log balance fetch result
+  useEffect(() => {
+    if (assetAddress && userAddress) {
+      console.log('[useVaultActions] Balance Query:', {
+        assetAddress,
+        userAddress,
+        assetBalance: assetBalance?.toString(),
+        balanceError: balanceError?.message,
+        balanceLoading,
+        allowance: allowance?.toString(),
+        allowanceError: allowanceError?.message,
+      });
+    }
+  }, [assetAddress, userAddress, assetBalance, balanceError, balanceLoading, allowance, allowanceError]);
   
   // Write contract hooks
   const { writeContractAsync: writeApprove, data: approveHash } = useWriteContract();

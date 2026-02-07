@@ -114,7 +114,7 @@ npm install
 
 ```bash
 cd pharos-vault
-cp .env.example .env
+cp .env .env
 # 编辑 .env 填入你的私钥
 ```
 
@@ -142,10 +142,10 @@ npm run dev
 | 配置项 | 值 |
 |--------|------|
 | 网络名称 | Pharos Testnet |
-| RPC URL | https://testnet.dplabs-internal.com |
+| RPC URL | https://atlantic.dplabs-internal.com |
 | Chain ID | 688689 |
 | 货币符号 | PTT |
-| 区块浏览器 | https://testnet.pharosscan.xyz |
+| 区块浏览器 | https://atlantic.pharosscan.xyz |
 
 ---
 
@@ -176,7 +176,7 @@ cd pharos-vault && npm install
 cd ../frontend && npm install
 
 # Configure environment
-cd ../pharos-vault && cp .env.example .env
+cd ../pharos-vault && cp .env .env
 
 # Deploy to Pharos Testnet
 npm run deploy:pharos-testnet

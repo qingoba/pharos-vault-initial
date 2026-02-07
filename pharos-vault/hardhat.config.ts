@@ -64,7 +64,7 @@ const config: HardhatUserConfig = {
         chainId: 688689,
         urls: {
           apiURL: "https://api.socialscan.io/pharos-atlantic-testnet",
-          browserURL: "https://testnet.pharosscan.xyz",
+          browserURL: "https://atlantic.pharosscan.xyz",
         },
       },
     ],
