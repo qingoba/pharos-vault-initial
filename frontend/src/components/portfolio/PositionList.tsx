@@ -35,7 +35,7 @@ export function PositionList() {
             </div>
             <div className="text-right mr-6">
               <p className="text-xs text-gray-500">Value</p>
-              <p className="font-semibold">${pos.currentValue.toLocaleString()}</p>
+              <p className="font-semibold">${pos.currentValue.toLocaleString('en-US')}</p>
             </div>
             <div className="text-right mr-6">
               <p className="text-xs text-gray-500">Allocation</p>

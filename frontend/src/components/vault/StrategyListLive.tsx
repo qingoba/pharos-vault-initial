@@ -6,7 +6,7 @@
  */
 
 import { useChainId } from 'wagmi';
-import { useVaultStrategies, useStrategyInfo, useVaultAdmin } from '@/hooks';
+import { useVaultStrategies, useStrategyInfo, useVaultAdmin, useMounted } from '@/hooks';
 import { getContracts } from '@/lib/contracts';
 
 interface StrategyCardProps {
@@ -17,6 +17,7 @@ interface StrategyCardProps {
 function StrategyCard({ strategyAddress, vaultAddress }: StrategyCardProps) {
   const { strategy, isLoading, allocationPercent, apyPercent } = useStrategyInfo(strategyAddress, vaultAddress);
   const { harvestStrategy, isLoading: isHarvesting, txState } = useVaultAdmin(vaultAddress);
+  const mounted = useMounted();
 
   const handleHarvest = async () => {
     try {
@@ -44,11 +45,14 @@ function StrategyCard({ strategyAddress, vaultAddress }: StrategyCardProps) {
   }
 
   // Calculate time since last harvest
-  const timeSinceHarvest = Date.now() / 1000 - strategy.lastHarvest;
-  const hoursSinceHarvest = Math.floor(timeSinceHarvest / 3600);
-  const timeSinceDisplay = hoursSinceHarvest >= 24 
-    ? `${Math.floor(hoursSinceHarvest / 24)}d ago`
-    : `${hoursSinceHarvest}h ago`;
+  let timeSinceDisplay = '--';
+  if (mounted) {
+    const timeSinceHarvest = Date.now() / 1000 - strategy.lastHarvest;
+    const hoursSinceHarvest = Math.floor(timeSinceHarvest / 3600);
+    timeSinceDisplay = hoursSinceHarvest >= 24
+      ? `${Math.floor(hoursSinceHarvest / 24)}d ago`
+      : `${hoursSinceHarvest}h ago`;
+  }
 
   return (
     <div className="p-4 bg-white border border-gray-200 rounded-lg">
@@ -97,7 +101,7 @@ function StrategyCard({ strategyAddress, vaultAddress }: StrategyCardProps) {
       <div className="flex justify-between text-sm mb-3">
         <span className="text-gray-500">Total Profit:</span>
         <span className="font-medium text-green-600">
-          +${(Number(strategy.totalProfit) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+          +${(Number(strategy.totalProfit) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 })}
         </span>
       </div>
 

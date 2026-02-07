@@ -8,9 +8,9 @@ export function HarvestHistory({ records }: { records: HarvestRecord[] }) {
         {records.map((r) => (
           <div key={r.txHash} className="flex items-center justify-between text-sm">
             <span className="text-gray-500">
-              {new Date(r.timestamp).toLocaleDateString()}
+              {new Date(r.timestamp).toLocaleDateString('en-US', { timeZone: 'UTC' })}
             </span>
-            <span className="font-medium text-green-600">+${r.amount.toLocaleString()}</span>
+            <span className="font-medium text-green-600">+${r.amount.toLocaleString('en-US')}</span>
             <a
               href={`https://explorer.pharos.xyz/tx/${r.txHash}`}
               target="_blank"

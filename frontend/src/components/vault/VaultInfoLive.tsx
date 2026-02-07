@@ -162,7 +162,7 @@ export function VaultInfoLive() {
           <span className="text-gray-500">Idle Assets:</span>
           <span className="font-medium">
             ${parseFloat(tvl) > 0 ? 
-              ((Number(vaultData.idleAssets) / Math.pow(10, vaultData.decimals))).toLocaleString(undefined, { maximumFractionDigits: 2 }) 
+              ((Number(vaultData.idleAssets) / Math.pow(10, vaultData.decimals))).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
               : '0'}
           </span>
         </div>
@@ -170,7 +170,7 @@ export function VaultInfoLive() {
           <span className="text-gray-500">Deployed to Strategies:</span>
           <span className="font-medium">
             ${parseFloat(tvl) > 0 ? 
-              ((Number(vaultData.deployedAssets) / Math.pow(10, vaultData.decimals))).toLocaleString(undefined, { maximumFractionDigits: 2 }) 
+              ((Number(vaultData.deployedAssets) / Math.pow(10, vaultData.decimals))).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
               : '0'}
           </span>
         </div>

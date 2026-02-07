@@ -73,6 +73,55 @@ async function main() {
   await tx2.wait();
   console.log("   已添加 Lending 策略 (40% 份额)");
 
+  // ===================== 5b. 部署 MockRWAVault + RWAAdapterStrategy =====================
+  console.log("\n5b. 部署 MockRWAVault & RWAAdapterStrategy...");
+  const MockRWAVault = await ethers.getContractFactory("MockRWAVault");
+  const rwaVault = await MockRWAVault.deploy(usdcAddress);
+  await rwaVault.waitForDeployment();
+  const rwaVaultAddress = await rwaVault.getAddress();
+  console.log("   MockRWAVault 部署成功:", rwaVaultAddress);
+
+  const RWAAdapter = await ethers.getContractFactory("RWAAdapterStrategy");
+  const rwaAdapter = await RWAAdapter.deploy(vaultAddress, usdcAddress, rwaVaultAddress, RWA_APY);
+  await rwaAdapter.waitForDeployment();
+  const rwaAdapterAddress = await rwaAdapter.getAddress();
+  console.log("   RWAAdapterStrategy 部署成功:", rwaAdapterAddress);
+
+  // ===================== 5c. 部署 zk-POR (MockZkVerifier + PorRegistry) =====================
+  console.log("\n5c. 部署 zk-POR 系统...");
+  const MockZkVerifier = await ethers.getContractFactory("MockZkVerifier");
+  const zkVerifier = await MockZkVerifier.deploy();
+  await zkVerifier.waitForDeployment();
+  const zkVerifierAddress = await zkVerifier.getAddress();
+  console.log("   MockZkVerifier 部署成功:", zkVerifierAddress);
+
+  const PorRegistry = await ethers.getContractFactory("PorRegistry");
+  const porRegistry = await PorRegistry.deploy(zkVerifierAddress);
+  await porRegistry.waitForDeployment();
+  const porRegistryAddress = await porRegistry.getAddress();
+  console.log("   PorRegistry 部署成功:", porRegistryAddress);
+
+  // ===================== 5d. 部署 PharosTimelock =====================
+  console.log("\n5d. 部署 PharosTimelock...");
+  const PharosTimelock = await ethers.getContractFactory("PharosTimelock");
+  const timelock = await PharosTimelock.deploy(
+    86400,                             // 24h delay
+    [deployer.address],                // proposers
+    [ethers.ZeroAddress],              // anyone can execute
+    deployer.address                   // admin
+  );
+  await timelock.waitForDeployment();
+  const timelockAddress = await timelock.getAddress();
+  console.log("   PharosTimelock 部署成功:", timelockAddress);
+
+  // ===================== 5e. 部署 TrancheManager =====================
+  console.log("\n5e. 部署 TrancheManager...");
+  const TrancheManager = await ethers.getContractFactory("TrancheManager");
+  const trancheManager = await TrancheManager.deploy(usdcAddress, vaultAddress, 300);
+  await trancheManager.waitForDeployment();
+  const trancheManagerAddress = await trancheManager.getAddress();
+  console.log("   TrancheManager 部署成功:", trancheManagerAddress);
+
   // ===================== 6. 铸造测试代币 =====================
   console.log("\n6. 铸造测试代币...");
   const mintAmount = ethers.parseUnits("1000000", 6); // 100万 USDC
@@ -93,7 +142,13 @@ async function main() {
   console.log("├── MockUSDC:              ", usdcAddress);
   console.log("├── PharosVault:           ", vaultAddress);
   console.log("├── MockRWAYieldStrategy:  ", rwaStrategyAddress);
-  console.log("└── SimpleLendingStrategy: ", lendingStrategyAddress);
+  console.log("├── SimpleLendingStrategy: ", lendingStrategyAddress);
+  console.log("├── MockRWAVault:          ", rwaVaultAddress);
+  console.log("├── RWAAdapterStrategy:    ", rwaAdapterAddress);
+  console.log("├── MockZkVerifier:        ", zkVerifierAddress);
+  console.log("├── PorRegistry:           ", porRegistryAddress);
+  console.log("├── PharosTimelock:        ", timelockAddress);
+  console.log("└── TrancheManager:        ", trancheManagerAddress);
   
   console.log("\n配置信息:");
   console.log("├── 费用接收地址:         ", FEE_RECIPIENT);
@@ -115,6 +170,12 @@ async function main() {
     vault: vaultAddress,
     rwaStrategy: rwaStrategyAddress,
     lendingStrategy: lendingStrategyAddress,
+    rwaVault: rwaVaultAddress,
+    rwaAdapter: rwaAdapterAddress,
+    zkVerifier: zkVerifierAddress,
+    porRegistry: porRegistryAddress,
+    timelock: timelockAddress,
+    trancheManager: trancheManagerAddress,
   };
 }
 

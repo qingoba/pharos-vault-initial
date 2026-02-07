@@ -43,7 +43,7 @@ export const config = createConfig({
   chains: [pharosTestnet, sepolia, pharos, localhost],
   transports: {
     [pharosTestnet.id]: http(),
-    [sepolia.id]: http('https://sepolia.infura.io/v3/f4b1765357b1449e84efc12dcdbc502d'),
+      [sepolia.id]: http('https://sepolia.infura.io/v3/f4b1765357b1449e84efc12dcdbc502d'),
     [pharos.id]: http(),
     [localhost.id]: http(),
   },

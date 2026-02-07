@@ -21,7 +21,7 @@ export function StrategyDetails({ strategies }: { strategies: Strategy[] }) {
               <td className="py-2 font-medium">{s.name}</td>
               <td className="py-2">{s.allocation}%</td>
               <td className="py-2 text-[var(--primary)]">{s.apr}%</td>
-              <td className="py-2">${s.lastHarvest.toLocaleString()}</td>
+              <td className="py-2">${s.lastHarvest.toLocaleString('en-US')}</td>
               <td className="py-2 text-red-500">{s.maxDrawdown}%</td>
               <td className="py-2">
                 {s.proofOfReserve ? (

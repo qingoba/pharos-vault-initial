@@ -19,7 +19,7 @@ export function Header() {
   const navItems = [
     { href: '/', label: 'Dashboard' },
     { href: '/vault/live', label: 'Live Vault' },
-    { href: '/vault/usdc-vault', label: 'Demo Vault' },
+    { href: '/transparency', label: 'Transparency' },
     { href: '/portfolio', label: 'Portfolio' },
   ];
 

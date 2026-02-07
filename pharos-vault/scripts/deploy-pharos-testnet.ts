@@ -2,6 +2,16 @@ import { ethers } from "hardhat";
 import * as fs from "fs";
 import * as path from "path";
 
+async function waitForReceipt(txHash: string, timeoutMs = 180000, pollMs = 3000) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const receipt = await ethers.provider.getTransactionReceipt(txHash);
+    if (receipt) return receipt;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+  throw new Error("Deployment transaction not confirmed after timeout");
+}
+
 /**
  * Pharos Testnet Deployment Script
  * 
@@ -71,22 +81,44 @@ async function main() {
   });
   console.log("  Estimated gas:", estimatedGas.toString());
   
-  // Get current gas price from network
+  // Get current fee data from network
   const feeData = await ethers.provider.getFeeData();
-  const gasPrice = feeData.gasPrice || 10000000000n; // Default 10 gwei
-  console.log("  Gas price:", (gasPrice / 1000000000n).toString(), "gwei");
+  const fallbackGasPrice = ethers.parseUnits("10", "gwei");
+  const fallbackPriorityFee = ethers.parseUnits("1.5", "gwei");
+
+  let gasPrice = feeData.gasPrice ?? fallbackGasPrice;
+  if (gasPrice < fallbackGasPrice) gasPrice = fallbackGasPrice;
+
+  let maxPriorityFeePerGas = feeData.maxPriorityFeePerGas ?? fallbackPriorityFee;
+  if (maxPriorityFeePerGas < fallbackPriorityFee) maxPriorityFeePerGas = fallbackPriorityFee;
+
+  let maxFeePerGas = feeData.maxFeePerGas ?? gasPrice * 2n;
+  if (maxFeePerGas < maxPriorityFeePerGas) {
+    maxFeePerGas = maxPriorityFeePerGas + gasPrice;
+  }
+
+  const supportsEip1559 = feeData.maxFeePerGas != null || feeData.maxPriorityFeePerGas != null;
+
+  if (supportsEip1559) {
+    console.log("  maxFeePerGas:", ethers.formatUnits(maxFeePerGas, "gwei"), "gwei");
+    console.log("  maxPriorityFeePerGas:", ethers.formatUnits(maxPriorityFeePerGas, "gwei"), "gwei");
+  } else {
+    console.log("  Gas price:", ethers.formatUnits(gasPrice, "gwei"), "gwei");
+  }
   
   // Send the deployment transaction manually
   console.log("  Sending deployment transaction...");
   const tx = await deployer.sendTransaction({
     data: deployTx.data,
     gasLimit: estimatedGas * 120n / 100n, // 20% buffer
-    gasPrice: gasPrice,
+    ...(supportsEip1559
+      ? { maxFeePerGas, maxPriorityFeePerGas }
+      : { gasPrice }),
   });
   console.log("  Tx hash:", tx.hash);
   console.log("  Waiting for confirmation...");
   
-  const receipt = await tx.wait();
+  const receipt = await waitForReceipt(tx.hash, 180000, 3000);
   if (!receipt || receipt.status !== 1) {
     throw new Error("Deployment transaction failed");
   }
@@ -149,6 +181,55 @@ async function main() {
   await usdc.approve(rwaStrategyAddress, ethers.MaxUint256);
   console.log("  ✓ Yield provider approved");
 
+  // ===================== 6. Deploy Advanced Modules =====================
+  console.log("\nStep 6: Deploying advanced modules...");
+
+  // MockRWAVault + RWAAdapterStrategy
+  console.log("  Deploying MockRWAVault...");
+  const MockRWAVault = await ethers.getContractFactory("MockRWAVault");
+  const rwaVault = await MockRWAVault.deploy(usdcAddress);
+  await rwaVault.waitForDeployment();
+  const rwaVaultAddress = await rwaVault.getAddress();
+  console.log("  ✓ MockRWAVault deployed:", rwaVaultAddress);
+
+  console.log("  Deploying RWAAdapterStrategy...");
+  const RWAAdapter = await ethers.getContractFactory("RWAAdapterStrategy");
+  const rwaAdapter = await RWAAdapter.deploy(vaultAddress, usdcAddress, rwaVaultAddress, RWA_APY);
+  await rwaAdapter.waitForDeployment();
+  const rwaAdapterAddress = await rwaAdapter.getAddress();
+  console.log("  ✓ RWAAdapterStrategy deployed:", rwaAdapterAddress);
+
+  // zk-POR
+  console.log("  Deploying MockZkVerifier...");
+  const MockZkVerifier = await ethers.getContractFactory("MockZkVerifier");
+  const zkVerifier = await MockZkVerifier.deploy();
+  await zkVerifier.waitForDeployment();
+  const zkVerifierAddress = await zkVerifier.getAddress();
+  console.log("  ✓ MockZkVerifier deployed:", zkVerifierAddress);
+
+  console.log("  Deploying PorRegistry...");
+  const PorRegistry = await ethers.getContractFactory("PorRegistry");
+  const porRegistry = await PorRegistry.deploy(zkVerifierAddress);
+  await porRegistry.waitForDeployment();
+  const porRegistryAddress = await porRegistry.getAddress();
+  console.log("  ✓ PorRegistry deployed:", porRegistryAddress);
+
+  // Timelock
+  console.log("  Deploying PharosTimelock...");
+  const PharosTimelock = await ethers.getContractFactory("PharosTimelock");
+  const timelock = await PharosTimelock.deploy(86400, [deployer.address], [ethers.ZeroAddress], deployer.address);
+  await timelock.waitForDeployment();
+  const timelockAddress = await timelock.getAddress();
+  console.log("  ✓ PharosTimelock deployed:", timelockAddress);
+
+  // TrancheManager
+  console.log("  Deploying TrancheManager...");
+  const TrancheManager = await ethers.getContractFactory("TrancheManager");
+  const trancheManager = await TrancheManager.deploy(usdcAddress, vaultAddress, 300);
+  await trancheManager.waitForDeployment();
+  const trancheManagerAddress = await trancheManager.getAddress();
+  console.log("  ✓ TrancheManager deployed:", trancheManagerAddress);
+
   // ===================== Deployment Summary =====================
   console.log("\n=====================================================");
   console.log("           Deployment Complete!");
@@ -159,6 +240,10 @@ async function main() {
     PharosVault: vaultAddress,
     RWAYieldStrategy: rwaStrategyAddress,
     SimpleLendingStrategy: lendingStrategyAddress,
+    RWAAdapterStrategy: rwaAdapterAddress,
+    PorRegistry: porRegistryAddress,
+    TrancheManager: trancheManagerAddress,
+    PharosTimelock: timelockAddress,
   };
 
   console.log("Contract Addresses:");
@@ -188,12 +273,18 @@ async function main() {
   // Core Token
   USDC: '${usdcAddress}' as \`0x\${string}\`,
   
-  // Vault${isSepolia ? '' : ''}
+  // Vault
   PharosVault: '${vaultAddress}' as \`0x\${string}\`,
   
   // Strategies
   RWAYieldStrategy: '${rwaStrategyAddress}' as \`0x\${string}\`,
   SimpleLendingStrategy: '${lendingStrategyAddress}' as \`0x\${string}\`,
+  RWAAdapterStrategy: '${rwaAdapterAddress}' as \`0x\${string}\`,
+  
+  // Advanced modules
+  PorRegistry: '${porRegistryAddress}' as \`0x\${string}\`,
+  TrancheManager: '${trancheManagerAddress}' as \`0x\${string}\`,
+  PharosTimelock: '${timelockAddress}' as \`0x\${string}\`,
 } as const;`;
 
     // Use regex to replace the appropriate contracts block

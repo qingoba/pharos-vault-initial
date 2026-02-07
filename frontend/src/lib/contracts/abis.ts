@@ -301,6 +301,22 @@ export const PharosVaultABI = [
     type: 'function',
   },
   
+  // New cached accounting
+  {
+    inputs: [],
+    name: 'totalDeployedAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'nextHarvestIndex',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+
   // 管理员函数
   {
     inputs: [],
@@ -314,6 +330,34 @@ export const PharosVaultABI = [
     name: 'harvestStrategy',
     outputs: [],
     stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  // Keeper functions
+  {
+    inputs: [],
+    name: 'harvestNext',
+    outputs: [{ name: 'harvested', type: 'bool' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '', type: 'bytes' }],
+    name: 'checkUpkeep',
+    outputs: [
+      { name: 'upkeepNeeded', type: 'bool' },
+      { name: 'performData', type: 'bytes' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'checker',
+    outputs: [
+      { name: 'canExec', type: 'bool' },
+      { name: 'execPayload', type: 'bytes' },
+    ],
+    stateMutability: 'view',
     type: 'function',
   },
   
@@ -360,6 +404,18 @@ export const PharosVaultABI = [
       { indexed: false, name: 'totalDebt', type: 'uint256' },
     ],
     name: 'StrategyReported',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, name: 'totalAssets', type: 'uint256' },
+      { indexed: false, name: 'idleAssets', type: 'uint256' },
+      { indexed: false, name: 'deployedAssets', type: 'uint256' },
+      { indexed: false, name: 'pricePerShare', type: 'uint256' },
+      { indexed: false, name: 'timestamp', type: 'uint256' },
+    ],
+    name: 'VaultSnapshot',
     type: 'event',
   },
 ] as const;
@@ -508,5 +564,210 @@ export const ERC20ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
+  },
+] as const;
+
+// ======================== PorRegistry ABI ========================
+export const PorRegistryABI = [
+  {
+    inputs: [],
+    name: 'proofCount',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'latestProof',
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'timestamp', type: 'uint256' },
+          { name: 'totalReserves', type: 'uint256' },
+          { name: 'totalLiabilities', type: 'uint256' },
+          { name: 'merkleRoot', type: 'bytes32' },
+          { name: 'verified', type: 'bool' },
+          { name: 'attester', type: 'address' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'isHealthy',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '', type: 'uint256' }],
+    name: 'proofs',
+    outputs: [
+      { name: 'timestamp', type: 'uint256' },
+      { name: 'totalReserves', type: 'uint256' },
+      { name: 'totalLiabilities', type: 'uint256' },
+      { name: 'merkleRoot', type: 'bytes32' },
+      { name: 'verified', type: 'bool' },
+      { name: 'attester', type: 'address' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  // Events
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: 'proofId', type: 'uint256' },
+      { indexed: false, name: 'totalReserves', type: 'uint256' },
+      { indexed: false, name: 'totalLiabilities', type: 'uint256' },
+      { indexed: false, name: 'merkleRoot', type: 'bytes32' },
+      { indexed: false, name: 'verified', type: 'bool' },
+      { indexed: true, name: 'attester', type: 'address' },
+      { indexed: false, name: 'timestamp', type: 'uint256' },
+    ],
+    name: 'ProofSubmitted',
+    type: 'event',
+  },
+] as const;
+
+// ======================== TrancheManager ABI ========================
+export const TrancheManagerABI = [
+  {
+    inputs: [],
+    name: 'seniorTranche',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'juniorTranche',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'seniorDeposits',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'juniorDeposits',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'seniorTargetAPR',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'seniorTotalAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'juniorTotalAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'totalManagedAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'lastWaterfallTime',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  // Write functions
+  {
+    inputs: [
+      { name: '_assets', type: 'uint256' },
+      { name: '_receiver', type: 'address' },
+    ],
+    name: 'depositSenior',
+    outputs: [{ name: 'shares', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: '_assets', type: 'uint256' },
+      { name: '_receiver', type: 'address' },
+    ],
+    name: 'depositJunior',
+    outputs: [{ name: 'shares', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: '_shares', type: 'uint256' },
+      { name: '_receiver', type: 'address' },
+    ],
+    name: 'redeemSenior',
+    outputs: [{ name: 'assets', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: '_shares', type: 'uint256' },
+      { name: '_receiver', type: 'address' },
+    ],
+    name: 'redeemJunior',
+    outputs: [{ name: 'assets', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'executeWaterfall',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  // Events
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: 'user', type: 'address' },
+      { indexed: false, name: 'isSenior', type: 'bool' },
+      { indexed: false, name: 'assets', type: 'uint256' },
+      { indexed: false, name: 'shares', type: 'uint256' },
+    ],
+    name: 'Deposited',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, name: 'totalYield', type: 'uint256' },
+      { indexed: false, name: 'seniorYield', type: 'uint256' },
+      { indexed: false, name: 'juniorYield', type: 'uint256' },
+      { indexed: false, name: 'timestamp', type: 'uint256' },
+    ],
+    name: 'WaterfallExecuted',
+    type: 'event',
   },
 ] as const;

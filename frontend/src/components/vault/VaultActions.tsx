@@ -190,17 +190,17 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
         {tab === 'deposit' ? (
           <div className="flex justify-between">
             <span className="text-gray-500">Available Balance:</span>
-            <span className="font-medium">{parseFloat(assetBalanceFormatted).toLocaleString()} USDC</span>
+            <span className="font-medium">{parseFloat(assetBalanceFormatted).toLocaleString('en-US')} USDC</span>
           </div>
         ) : (
           <>
             <div className="flex justify-between mb-1">
               <span className="text-gray-500">Your Shares:</span>
-              <span className="font-medium">{parseFloat(sharesFormatted).toLocaleString()} pvUSDC</span>
+              <span className="font-medium">{parseFloat(sharesFormatted).toLocaleString('en-US')} pvUSDC</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Value:</span>
-              <span className="font-medium">{parseFloat(valueFormatted).toLocaleString()} USDC</span>
+              <span className="font-medium">{parseFloat(valueFormatted).toLocaleString('en-US')} USDC</span>
             </div>
           </>
         )}

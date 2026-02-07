@@ -28,9 +28,13 @@ Pharos Vault 是一个符合 ERC4626 标准的收益型保险库协议，专为 
 | 🏦 **ERC4626 标准** | 完全兼容 Pharos 标准的收益型代币接口 |
 | 📊 **多策略管理** | 支持多个收益策略的自动管理和资金分配 |
 | 💰 **动态费率** | 管理费和绩效费的自动化计算与收取 |
-| 🌾 **自动复投** | 收益自动收获并重新投入，最大化收益 |
-| 📈 **透明度看板** | 实时展示资产组合、收益率和历史数据 |
+| 🌾 **自动复投** | Chainlink Automation + Gelato Ops 轮询收获，gas 最优 |
+| 📈 **透明度看板** | 实时展示资产组合、收益率、zk-POR 和 Tranche 数据 |
 | 🔒 **紧急模式** | 支持紧急暂停和资金撤回机制 |
+| 🛡️ **zk-Proof of Reserve** | 链上零知识证明验证储备金充足性 |
+| ⚖️ **Senior/Junior 风险分级** | 瀑布分配模型——Senior 优先收益、Junior 吸收损失 |
+| ⏳ **Timelock 治理** | 24 小时延迟锁，确保管理操作透明可审计 |
+| 🔗 **RWA 协议适配器** | ERC4626-to-ERC4626 适配器，对接任意外部 RWA 收益源 |
 
 ### 🛠 技术栈
 
@@ -51,30 +55,45 @@ Pharos Vault 是一个符合 ERC4626 标准的收益型保险库协议，专为 
 pharos-vault-initial/
 ├── pharos-vault/          # 智能合约
 │   ├── contracts/
-│   │   ├── PharosVault.sol           # 主 Vault 合约
-│   │   ├── interfaces/IStrategy.sol
+│   │   ├── PharosVault.sol           # 主 Vault 合约 (Gas优化 + Keeper兼容)
+│   │   ├── PharosTimelock.sol        # 治理延迟锁
+│   │   ├── PorRegistry.sol           # zk-POR 链上注册中心
+│   │   ├── interfaces/
+│   │   │   ├── IStrategy.sol
+│   │   │   └── IZkPorVerifier.sol    # zk证明验证器接口
 │   │   ├── strategies/
 │   │   │   ├── BaseStrategy.sol
-│   │   │   ├── MockRWAYieldStrategy.sol  # RWA 收益策略
-│   │   │   └── SimpleLendingStrategy.sol
-│   │   └── mocks/MockUSDC.sol
-│   ├── scripts/
-│   │   ├── deploy.ts
-│   │   └── deploy-pharos-testnet.ts  # Pharos 测试网部署脚本
-│   └── test/
+│   │   │   ├── MockRWAYieldStrategy.sol
+│   │   │   ├── SimpleLendingStrategy.sol
+│   │   │   └── RWAAdapterStrategy.sol # ERC4626 RWA 适配器
+│   │   ├── tranches/
+│   │   │   ├── TrancheManager.sol     # Senior/Junior 风险管理
+│   │   │   └── TrancheVault.sol       # 分级代币
+│   │   └── mocks/
+│   │       ├── MockUSDC.sol
+│   │       ├── MockZkVerifier.sol     # zk验证器桩
+│   │       └── MockRWAVault.sol       # 外部RWA金库模拟
+│   ├── test/
+│   │   ├── PharosVault.test.ts
+│   │   ├── Strategies.test.ts
+│   │   └── Advanced.test.ts          # 新功能集成测试 (21 cases)
+│   └── scripts/
+│       ├── deploy.ts
+│       └── deploy-pharos-testnet.ts
 ├── frontend/              # 前端应用
 │   ├── src/
 │   │   ├── app/
-│   │   │   └── vault/live/           # 实时数据页面
-│   │   ├── hooks/                    # 合约交互 hooks
-│   │   │   ├── useVault.ts
-│   │   │   └── useVaultActions.ts
-│   │   ├── lib/contracts/            # ABI 和地址配置
-│   │   └── components/vault/
-│   │       ├── VaultInfoLive.tsx
-│   │       ├── StrategyListLive.tsx
-│   │       └── UserPositionLive.tsx
-└── DEPLOYMENT_GUIDE.md    # 详细部署教程
+│   │   │   ├── vault/live/           # 实时 Vault 页面
+│   │   │   └── transparency/         # 透明度仪表板
+│   │   ├── hooks/
+│   │   │   ├── useVault.ts           # Vault 读取
+│   │   │   ├── useVaultActions.ts    # Vault 写入
+│   │   │   ├── usePoR.ts            # zk-POR 状态
+│   │   │   ├── useTranches.ts       # 分级数据
+│   │   │   └── useKeeperStatus.ts   # Keeper 状态
+│   │   ├── lib/contracts/
+│   │   └── components/
+└── DEPLOYMENT_GUIDE.md
 ```
 
 ### 🚀 快速开始
@@ -141,8 +160,12 @@ Pharos Vault is an ERC4626-compliant yield vault protocol designed for the Pharo
 - **ERC4626 Standard** - Fully compatible with the tokenized vault standard
 - **Multi-Strategy Management** - Automatic management and fund allocation across strategies
 - **Dynamic Fees** - Automated calculation of management and performance fees
-- **Auto-Compound** - Automatic yield harvesting and reinvestment
-- **Transparency Dashboard** - Real-time portfolio, APY, and historical data
+- **Auto-Compound** - Chainlink Automation + Gelato Ops round-robin harvest for gas efficiency
+- **zk-Proof of Reserve** - On-chain zero-knowledge proof verifying reserve adequacy
+- **Senior/Junior Tranches** - Waterfall yield distribution with first-loss protection
+- **Timelock Governance** - 24-hour delay lock on admin operations
+- **RWA Protocol Adapter** - ERC4626-to-ERC4626 adapter for external RWA yield sources
+- **Transparency Dashboard** - Real-time portfolio, APY, zk-POR, and tranche data
 - **Emergency Mode** - Emergency pause and fund withdrawal mechanisms
 
 ### 🔧 Quick Start

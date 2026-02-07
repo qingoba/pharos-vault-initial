@@ -101,7 +101,7 @@ export function UserPositionLive() {
       <div className="text-center py-4 mb-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
         <p className="text-sm text-gray-500 mb-1">Current Value</p>
         <p className="text-3xl font-bold text-gray-900">
-          ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
         {estimatedProfit !== 0 && (
           <p className={`text-sm mt-1 ${estimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -116,7 +116,7 @@ export function UserPositionLive() {
         <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
           <div>
             <p className="text-xs text-gray-500">Vault Shares</p>
-            <p className="font-semibold">{shares.toLocaleString(undefined, { maximumFractionDigits: 4 })} pvUSDC</p>
+            <p className="font-semibold">{shares.toLocaleString('en-US', { maximumFractionDigits: 4 })} pvUSDC</p>
           </div>
           <div className="text-right">
             <p className="text-xs text-gray-500">Price per Share</p>
@@ -129,7 +129,7 @@ export function UserPositionLive() {
             <p className="text-xs text-gray-500">Max Withdraw</p>
             <p className="font-semibold text-sm">
               ${position?.maxWithdraw ? 
-                (Number(position.maxWithdraw) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 }) 
+                (Number(position.maxWithdraw) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
                 : '0'}
             </p>
           </div>
@@ -137,7 +137,7 @@ export function UserPositionLive() {
             <p className="text-xs text-gray-500">Max Redeem</p>
             <p className="font-semibold text-sm">
               {position?.maxRedeem ? 
-                (Number(position.maxRedeem) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 2 }) 
+                (Number(position.maxRedeem) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
                 : '0'} shares
             </p>
           </div>

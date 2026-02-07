@@ -4,3 +4,7 @@
 
 export * from './useVault';
 export * from './useVaultActions';
+export * from './usePoR';
+export * from './useTranches';
+export * from './useKeeperStatus';
+export * from './useMounted';

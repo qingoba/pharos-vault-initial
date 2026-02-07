@@ -14,6 +14,8 @@
  */
 
 import { ethers, network } from "hardhat";
+import * as fs from "fs";
+import * as path from "path";
 
 // 已部署的合约地址 (需要与 addresses.ts 保持一致)
 const SEPOLIA_CONTRACTS = {
@@ -30,6 +32,33 @@ const PHAROS_TESTNET_CONTRACTS = {
   SimpleLendingStrategy: '0x0000000000000000000000000000000000000000',
 };
 
+function loadLatestDeployment(prefix: string) {
+  const deploymentsDir = path.resolve(__dirname, "../deployments");
+  if (!fs.existsSync(deploymentsDir)) return null;
+
+  const files = fs
+    .readdirSync(deploymentsDir)
+    .filter((f) => f.startsWith(`${prefix}-`) && f.endsWith(".json"));
+
+  if (files.length === 0) return null;
+
+  files.sort((a, b) => {
+    const aTs = Number(a.replace(`${prefix}-`, "").replace(".json", ""));
+    const bTs = Number(b.replace(`${prefix}-`, "").replace(".json", ""));
+    return bTs - aTs;
+  });
+
+  const latestFile = files[0];
+  const data = JSON.parse(
+    fs.readFileSync(path.join(deploymentsDir, latestFile), "utf8")
+  );
+
+  return {
+    file: latestFile,
+    contracts: data.contracts,
+  };
+}
+
 async function main() {
   const [deployer] = await ethers.getSigners();
   const chainId = (await ethers.provider.getNetwork()).chainId;
@@ -44,9 +73,17 @@ async function main() {
   // 选择合约地址
   let contracts;
   if (chainId === 11155111n) {
-    contracts = SEPOLIA_CONTRACTS;
+    const latest = loadLatestDeployment("sepolia");
+    contracts = latest?.contracts || SEPOLIA_CONTRACTS;
+    if (latest?.file) {
+      console.log(`Using deployment file: ${latest.file}`);
+    }
   } else if (chainId === 688689n) {
-    contracts = PHAROS_TESTNET_CONTRACTS;
+    const latest = loadLatestDeployment("pharos-testnet");
+    contracts = latest?.contracts || PHAROS_TESTNET_CONTRACTS;
+    if (latest?.file) {
+      console.log(`Using deployment file: ${latest.file}`);
+    }
   } else {
     throw new Error(`Unsupported network: ${network.name}`);
   }
@@ -151,19 +188,22 @@ async function simulateYieldGeneration(
   console.log(`\n--- Simulating Yield ---`);
   console.log(`Will inject ${ethers.formatUnits(simulatedYield, 6)} USDC as simulated yield`);
   
+  const rwaPending = await rwaStrategy.getPendingYield();
+  const mintAmount = simulatedYield * 3n + rwaPending;
+
   // Step 1: 铸造 USDC 给 yieldProvider
   console.log("\nStep 1: Minting USDC for yield simulation...");
-  const mintTx = await usdc.mint(deployer.address, simulatedYield * 2n);
+  const mintTx = await usdc.mint(deployer.address, mintAmount);
   await mintTx.wait();
   console.log("✓ Minted USDC");
   
   // Step 2: 授权策略合约
   console.log("\nStep 2: Approving strategies to pull yield...");
-  const approveTx = await usdc.approve(contracts.RWAYieldStrategy, simulatedYield);
+  const approveTx = await usdc.approve(contracts.RWAYieldStrategy, ethers.MaxUint256);
   await approveTx.wait();
   console.log("✓ Approved RWA Strategy");
   
-  const approveTx2 = await usdc.approve(contracts.SimpleLendingStrategy, simulatedYield);
+  const approveTx2 = await usdc.approve(contracts.SimpleLendingStrategy, ethers.MaxUint256);
   await approveTx2.wait();
   console.log("✓ Approved Lending Strategy");
   
@@ -180,13 +220,21 @@ async function simulateYieldGeneration(
   }
   
   // Step 4: 触发 harvest
-  console.log("\nStep 4: Triggering harvestAll...");
+  console.log("\nStep 4: Triggering harvests...");
   try {
-    const harvestTx = await vault.harvestAll();
+    const harvestTx = await vault.harvestStrategy(contracts.RWAYieldStrategy);
     const receipt = await harvestTx.wait();
-    console.log(`✓ HarvestAll completed! Tx: ${receipt?.hash}`);
+    console.log(`✓ Harvest RWA completed! Tx: ${receipt?.hash}`);
   } catch (err: any) {
-    console.log(`ℹ️ HarvestAll skipped: ${err.message?.slice(0, 100)}`);
+    console.log(`INFO: Harvest RWA skipped: ${err.message?.slice(0, 100)}`);
+  }
+
+  try {
+    const harvestTx2 = await vault.harvestStrategy(contracts.SimpleLendingStrategy);
+    const receipt2 = await harvestTx2.wait();
+    console.log(`✓ Harvest Lending completed! Tx: ${receipt2?.hash}`);
+  } catch (err: any) {
+    console.log(`INFO: Harvest Lending skipped: ${err.message?.slice(0, 100)}`);
   }
   
   // 显示更新后的状态
