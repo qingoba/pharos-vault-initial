@@ -1,0 +1,32 @@
+{
+  "network": "sepolia",
+  "chainId": "11155111",
+  "deployer": "0xFf86f010D005d15bd43e1f254C12ACabEFae218d",
+  "timestamp": "2026-02-07T18:19:48.582Z",
+  "contracts": {
+    "USDC": "0xca423B0fC4117bFc2125A4bcd49f192fa989E3C6",
+    "WBTC": "0x879019D2cF514d583214B83A96D9574D3565b144",
+    "WBNB": "0xc2890Cd0Bec76d3Ec1842b77a60024541A6e37DB",
+    "PharosVault": "0x86AD58952202645198Be2d21f24CA5aBCE8D10F9",
+    "SwapRouter": "0x6205A429cE70F18214d4EFD00689e269d51D2497",
+    "RWAYieldStrategy": "0xd4FB18312e5B3fA5f4C30f607779C4fC61E9bA21",
+    "SimpleLendingStrategy": "0x6ED57277FD6dB02D4796b14cEed977f417655070",
+    "RWAAdapterStrategy": "0xD5b917e89821CFa39f51efB39e0A0C02B54142CD",
+    "PorRegistry": "0x7C12daCb2eD8894390F9aA8dA86c42eBeD83C8E7",
+    "TrancheManager": "0xCF77f7F90bAC3F0Ab17008caaf6D12f82845F82c",
+    "PharosTimelock": "0xDa360ee947930dbfC7fb1E0e837142d787083B9B"
+  },
+  "config": {
+    "managementFee": "2%",
+    "performanceFee": "10%",
+    "rwaStrategyAPY": "5%",
+    "lendingStrategyAPY": "3%",
+    "rwaAllocation": "60%",
+    "lendingAllocation": "40%",
+    "autoAllocate": true,
+    "multiAsset": {
+      "wbtcToUsdcRate": "600000000000000000000",
+      "wbnbToUsdcRate": "500000000"
+    }
+  }
+}

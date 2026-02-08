@@ -1,168 +1,153 @@
 import { ethers } from "hardhat";
 
 /**
- * 演示脚本 - 展示完整的 Vault 工作流程
- * 
- * 此脚本演示:
- * 1. 用户存款 (Deposit)
- * 2. 分配资金到策略 (Allocate)
- * 3. 模拟时间流逝并注入收益
- * 4. 收获收益 (Harvest)
- * 5. 查看收益
- * 6. 用户提现 (Withdraw)
+ * Multi-asset demo:
+ * 1) User deposits WBTC/WBNB
+ * 2) Vault swaps all inputs to USDC
+ * 3) RWA leg is queued as pending (async settlement)
+ * 4) Operator later executes pending investment into RWA strategy
  */
 async function main() {
-  const [deployer, user1] = await ethers.getSigners();
+  const [deployer, user, feeRecipient, yieldProvider] = await ethers.getSigners();
 
-  console.log("🚀 Pharos Vault 演示脚本");
-  console.log("========================\n");
+  console.log("=== Pharos Vault Multi-Asset Demo ===");
+  console.log("Deployer:", deployer.address);
+  console.log("User:", user.address);
 
-  // ===================== 部署合约 =====================
-  console.log("📦 部署合约...\n");
-  
-  // 部署 USDC
+  // 1) Deploy base assets
   const MockUSDC = await ethers.getContractFactory("MockUSDC");
   const usdc = await MockUSDC.deploy();
   await usdc.waitForDeployment();
 
-  // 部署 Vault
+  const MockERC20 = await ethers.getContractFactory("MockERC20");
+  const wbtc = await MockERC20.deploy("Wrapped BTC", "WBTC", 8);
+  await wbtc.waitForDeployment();
+  const wbnb = await MockERC20.deploy("Wrapped BNB", "WBNB", 18);
+  await wbnb.waitForDeployment();
+
+  // 2) Deploy vault
   const PharosVault = await ethers.getContractFactory("PharosVault");
   const vault = await PharosVault.deploy(
     await usdc.getAddress(),
     "Pharos USDC Vault",
     "pvUSDC",
-    deployer.address
+    feeRecipient.address
   );
   await vault.waitForDeployment();
 
-  // 部署策略
+  // 3) Deploy strategies (RWA async 60% + Lending 40%)
   const MockRWAYieldStrategy = await ethers.getContractFactory("MockRWAYieldStrategy");
-  const strategy = await MockRWAYieldStrategy.deploy(
+  const strategyA = await MockRWAYieldStrategy.deploy(
     await vault.getAddress(),
     await usdc.getAddress(),
-    500, // 5% APY
-    deployer.address
+    500, // 5%
+    yieldProvider.address
   );
-  await strategy.waitForDeployment();
+  await strategyA.waitForDeployment();
 
-  console.log("✅ 合约部署完成\n");
+  const SimpleLendingStrategy = await ethers.getContractFactory("SimpleLendingStrategy");
+  const strategyB = await SimpleLendingStrategy.deploy(
+    await vault.getAddress(),
+    await usdc.getAddress(),
+    300 // 3%
+  );
+  await strategyB.waitForDeployment();
 
-  // ===================== 准备代币 =====================
-  const depositAmount = ethers.parseUnits("100000", 6); // 10万 USDC
-  
-  // 为用户铸造代币
-  await usdc.mint(user1.address, depositAmount);
-  // 为收益提供者铸造足够的代币 (用于后续模拟收益)
-  await usdc.mint(deployer.address, depositAmount);
-  // 授权策略拉取收益
-  await usdc.approve(await strategy.getAddress(), ethers.MaxUint256);
+  await vault.addStrategy(await strategyA.getAddress(), 6000);
+  await vault.addStrategy(await strategyB.getAddress(), 4000);
+  await vault.setStrategyAsync(await strategyA.getAddress(), true);
+  await vault.setPendingAPY(500);
+  await vault.setIdleAPY(0);
 
-  console.log("💰 已为用户铸造 100,000 USDC\n");
+  // 4) Deploy + configure swap router
+  const MockSwapRouter = await ethers.getContractFactory("MockSwapRouter");
+  const router = await MockSwapRouter.deploy();
+  await router.waitForDeployment();
 
-  // ===================== 添加策略到 Vault =====================
-  await vault.addStrategy(await strategy.getAddress(), 10000);
-  console.log("📋 已添加 RWA 策略到 Vault (100% 份额)\n");
+  // Rate precision is 1e18.
+  // 1 WBTC (1e8) -> 60,000 USDC (6d) => rate = 600 * 1e18
+  const WBTC_TO_USDC_RATE = 600n * 10n ** 18n;
+  // 1 WBNB (1e18) -> 500 USDC (6d) => rate = 500e6
+  const WBNB_TO_USDC_RATE = 500n * 10n ** 6n;
 
-  // ===================== Step 1: 存款 =====================
-  console.log("=" .repeat(50));
-  console.log("📥 Step 1: 用户存款");
-  console.log("=" .repeat(50));
+  await router.setRoute(await wbtc.getAddress(), await usdc.getAddress(), WBTC_TO_USDC_RATE, true);
+  await router.setRoute(await wbnb.getAddress(), await usdc.getAddress(), WBNB_TO_USDC_RATE, true);
 
-  const userBalanceBefore = await usdc.balanceOf(user1.address);
-  console.log(`用户 USDC 余额: ${ethers.formatUnits(userBalanceBefore, 6)}`);
+  await vault.setSwapRouter(await router.getAddress());
+  await vault.setSupportedDepositAsset(await wbtc.getAddress(), true);
+  await vault.setSupportedDepositAsset(await wbnb.getAddress(), true);
 
-  // 授权并存款
-  await usdc.connect(user1).approve(await vault.getAddress(), depositAmount);
-  await vault.connect(user1).deposit(depositAmount, user1.address);
+  // Router payout liquidity
+  await usdc.mint(await router.getAddress(), ethers.parseUnits("100000000", 6));
 
-  const shares = await vault.balanceOf(user1.address);
-  console.log(`存入: ${ethers.formatUnits(depositAmount, 6)} USDC`);
-  console.log(`获得份额: ${ethers.formatUnits(shares, 6)} pvUSDC`);
-  console.log(`Vault 总资产: ${ethers.formatUnits(await vault.totalAssets(), 6)} USDC\n`);
+  // User balances
+  await wbtc.mint(user.address, 2n * 10n ** 8n); // 2 WBTC
+  await wbnb.mint(user.address, ethers.parseUnits("20", 18)); // 20 WBNB
+  await usdc.mint(yieldProvider.address, ethers.parseUnits("1000000", 6));
+  await usdc.connect(yieldProvider).approve(await strategyA.getAddress(), ethers.MaxUint256);
 
-  // ===================== Step 2: 分配资金到策略 =====================
-  console.log("=" .repeat(50));
-  console.log("🔄 Step 2: 分配资金到策略");
-  console.log("=" .repeat(50));
+  console.log("Contracts deployed:");
+  console.log("  USDC:", await usdc.getAddress());
+  console.log("  WBTC:", await wbtc.getAddress());
+  console.log("  WBNB:", await wbnb.getAddress());
+  console.log("  Vault:", await vault.getAddress());
+  console.log("  Router:", await router.getAddress());
+  console.log("  StrategyA:", await strategyA.getAddress(), "(RWA async 60%)");
+  console.log("  StrategyB:", await strategyB.getAddress(), "(Lending 40%)");
 
-  const allocateAmount = depositAmount;
-  await vault.allocateToStrategy(await strategy.getAddress(), allocateAmount);
+  // 5) User deposits WBTC
+  const wbtcIn = 1n * 10n ** 8n;
+  const [wbtcAssetsOut] = await vault.previewDepositAsset(await wbtc.getAddress(), wbtcIn);
+  await wbtc.connect(user).approve(await vault.getAddress(), wbtcIn);
+  await vault.connect(user).depositAsset(await wbtc.getAddress(), wbtcIn, wbtcAssetsOut, user.address);
 
-  console.log(`已分配: ${ethers.formatUnits(allocateAmount, 6)} USDC 到 RWA 策略`);
-  console.log(`策略中资产: ${ethers.formatUnits(await strategy.totalAssets(), 6)} USDC`);
-  console.log(`Vault 闲置资产: ${ethers.formatUnits(await vault.idleAssets(), 6)} USDC\n`);
+  console.log("\nAfter 1 WBTC deposit:");
+  console.log("  USDC converted:", ethers.formatUnits(wbtcAssetsOut, 6));
+  console.log("  User shares:", ethers.formatUnits(await vault.balanceOf(user.address), 6));
+  console.log("  Pending assets:", ethers.formatUnits(await vault.pendingAssets(), 6));
+  console.log("  StrategyA (RWA) assets:", ethers.formatUnits(await strategyA.totalAssets(), 6));
+  console.log("  StrategyB assets:", ethers.formatUnits(await strategyB.totalAssets(), 6));
 
-  // ===================== Step 3: 模拟收益产生 =====================
-  console.log("=" .repeat(50));
-  console.log("💵 Step 3: 模拟 RWA 收益分发");
-  console.log("=" .repeat(50));
+  // 6) User deposits WBNB
+  const wbnbIn = ethers.parseUnits("10", 18);
+  const [wbnbAssetsOut] = await vault.previewDepositAsset(await wbnb.getAddress(), wbnbIn);
+  await wbnb.connect(user).approve(await vault.getAddress(), wbnbIn);
+  await vault.connect(user).depositAsset(await wbnb.getAddress(), wbnbIn, wbnbAssetsOut, user.address);
 
-  // 直接注入模拟收益 (代表 RWA 资产产生的收益)
-  // 假设 30 天产生约 0.41% 收益 (5% APY * 30/365)
-  const simulatedYield = ethers.parseUnits("411", 6); // 约 411 USDC
-  await strategy.injectYield(simulatedYield);
-  console.log(`已注入 ${ethers.formatUnits(simulatedYield, 6)} USDC 收益 (模拟 RWA 资产分红)`);
+  console.log("\nAfter 10 WBNB deposit:");
+  console.log("  USDC converted:", ethers.formatUnits(wbnbAssetsOut, 6));
+  console.log("  Vault total assets:", ethers.formatUnits(await vault.totalAssets(), 6));
+  console.log("  Vault idle assets:", ethers.formatUnits(await vault.idleAssets(), 6));
+  console.log("  Vault pending assets:", ethers.formatUnits(await vault.pendingAssets(), 6));
+  console.log("  Vault free idle assets:", ethers.formatUnits(await vault.freeIdleAssets(), 6));
+  console.log("  StrategyA (RWA) assets:", ethers.formatUnits(await strategyA.totalAssets(), 6));
+  console.log("  StrategyB assets:", ethers.formatUnits(await strategyB.totalAssets(), 6));
+  console.log("  Projected vault APY (pending-aware):", Number(await vault.projectedAPY()) / 100, "%");
 
-  const pendingYield = await strategy.getPendingYield();
-  console.log(`待收益: ${ethers.formatUnits(pendingYield, 6)} USDC`);
-  console.log(`策略当前总资产: ${ethers.formatUnits(await strategy.totalAssets(), 6)} USDC\n`);
+  // 7) Simulate delayed RWA settlement, then execute pending
+  await ethers.provider.send("evm_increaseTime", [24 * 60 * 60]);
+  await ethers.provider.send("evm_mine", []);
 
-  // ===================== Step 4: 查看收益情况 =====================
-  console.log("=" .repeat(50));
-  console.log("📊 Step 4: 查看收益情况");
-  console.log("=" .repeat(50));
+  const pendingBeforeExec = await vault.pendingAssetsByStrategy(await strategyA.getAddress());
+  await vault.executePendingInvestment(await strategyA.getAddress(), pendingBeforeExec);
 
-  const totalAssetsNow = await vault.totalAssets();
-  // 注意: 在真实场景中会调用 harvestStrategy 从外部协议收割收益
-  // 这里因为我们直接注入了收益，所以已经反映在 totalAssets 中
+  console.log("\nAfter executing pending RWA settlement (+24h):");
+  console.log("  Vault pending assets:", ethers.formatUnits(await vault.pendingAssets(), 6));
+  console.log("  StrategyA (RWA) assets:", ethers.formatUnits(await strategyA.totalAssets(), 6));
+  console.log("  StrategyB assets:", ethers.formatUnits(await strategyB.totalAssets(), 6));
+  console.log("  Projected vault APY:", Number(await vault.projectedAPY()) / 100, "%");
 
-  console.log(`Vault 总资产: ${ethers.formatUnits(totalAssetsNow, 6)} USDC`);
-  console.log(`策略中待收益: ${ethers.formatUnits(await strategy.getPendingYield(), 6)} USDC`);
-  console.log(`收益来源: RWA 资产 (模拟美债收益分发)\n`);
+  // 8) User redeem 20%
+  const userShares = await vault.balanceOf(user.address);
+  const redeemShares = userShares / 5n;
+  await vault.connect(user).redeem(redeemShares, user.address, user.address);
 
-  // ===================== Step 5: 查看用户份额价值 =====================
-  console.log("=" .repeat(50));
-  console.log("💰 Step 5: 查看用户份额价值");
-  console.log("=" .repeat(50));
+  console.log("\nAfter redeeming 20% shares:");
+  console.log("  Remaining shares:", ethers.formatUnits(await vault.balanceOf(user.address), 6));
+  console.log("  User USDC balance:", ethers.formatUnits(await usdc.balanceOf(user.address), 6));
+  console.log("  Vault total assets:", ethers.formatUnits(await vault.totalAssets(), 6));
 
-  const currentShares = await vault.balanceOf(user1.address);
-  const currentShareValue = await vault.convertToAssets(currentShares);
-  const userProfit = currentShareValue - depositAmount;
-
-  console.log(`用户持有份额: ${ethers.formatUnits(currentShares, 6)} pvUSDC`);
-  console.log(`份额当前价值: ${ethers.formatUnits(currentShareValue, 6)} USDC`);
-  console.log(`用户收益: ${ethers.formatUnits(userProfit, 6)} USDC`);
-  console.log(`收益率: ${(Number(userProfit) / Number(depositAmount) * 100).toFixed(4)}%\n`);
-
-  // ===================== Step 6: 用户提现 =====================
-  console.log("=" .repeat(50));
-  console.log("📤 Step 6: 用户提现 (Withdraw)");
-  console.log("=" .repeat(50));
-
-  const userBalanceBeforeWithdraw = await usdc.balanceOf(user1.address);
-  
-  // 赎回所有份额
-  await vault.connect(user1).redeem(currentShares, user1.address, user1.address);
-
-  const userBalanceAfterWithdraw = await usdc.balanceOf(user1.address);
-  const received = userBalanceAfterWithdraw - userBalanceBeforeWithdraw;
-
-  console.log(`赎回份额: ${ethers.formatUnits(currentShares, 6)} pvUSDC`);
-  console.log(`获得资产: ${ethers.formatUnits(received, 6)} USDC`);
-  console.log(`净收益: ${ethers.formatUnits(received - depositAmount, 6)} USDC`);
-  console.log(`用户最终 USDC 余额: ${ethers.formatUnits(userBalanceAfterWithdraw, 6)} USDC\n`);
-
-  // ===================== 总结 =====================
-  console.log("=" .repeat(50));
-  console.log("✨ 演示完成!");
-  console.log("=" .repeat(50));
-  console.log("\n完整流程:");
-  console.log("1. ✅ 用户存入 100,000 USDC");
-  console.log("2. ✅ 资金分配到 RWA 策略");
-  console.log("3. ✅ 模拟 30 天时间流逝");
-  console.log("4. ✅ 收获策略收益");
-  console.log("5. ✅ 用户赎回全部份额");
-  console.log(`6. ✅ 用户获得约 ${ethers.formatUnits(received - depositAmount, 6)} USDC 收益`);
+  console.log("\nDemo completed.");
 }
 
 main()

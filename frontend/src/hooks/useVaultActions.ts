@@ -14,6 +14,7 @@ import { PharosVaultABI, ERC20ABI, getContracts } from '@/lib/contracts';
 const GAS_LIMITS = {
   approve: 100000n,
   deposit: 300000n,
+  depositAsset: 450000n,
   withdraw: 300000n,
   redeem: 300000n,
 };
@@ -29,7 +30,10 @@ export interface TransactionState {
 /**
  * Hook for vault deposit/withdraw operations
  */
-export function useVaultActions(vaultAddress?: `0x${string}`) {
+export function useVaultActions(
+  vaultAddress?: `0x${string}`,
+  selectedDepositToken?: `0x${string}`
+) {
   const { address: userAddress } = useAccount();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
@@ -39,7 +43,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
   const [txState, setTxState] = useState<TransactionState>({ status: 'idle' });
   
   // Get asset address
-  const { data: assetAddress, refetch: refetchAssetAddress } = useReadContract({
+  const { data: assetAddress } = useReadContract({
     address: vault,
     abi: PharosVaultABI,
     functionName: 'asset',
@@ -47,9 +51,12 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       staleTime: 0,
     },
   });
+
+  const depositTokenAddress =
+    selectedDepositToken || (assetAddress as `0x${string}` | undefined);
   
   // Get decimals
-  const { data: decimals } = useReadContract({
+  const { data: assetDecimals } = useReadContract({
     address: assetAddress as `0x${string}`,
     abi: ERC20ABI,
     functionName: 'decimals',
@@ -57,26 +64,46 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       enabled: !!assetAddress,
     },
   });
+
+  const { data: depositTokenDecimals } = useReadContract({
+    address: depositTokenAddress as `0x${string}`,
+    abi: ERC20ABI,
+    functionName: 'decimals',
+    query: {
+      enabled: !!depositTokenAddress,
+      staleTime: 0,
+    },
+  });
+
+  const { data: depositTokenSymbol } = useReadContract({
+    address: depositTokenAddress as `0x${string}`,
+    abi: ERC20ABI,
+    functionName: 'symbol',
+    query: {
+      enabled: !!depositTokenAddress,
+      staleTime: 0,
+    },
+  });
   
   // Check current allowance
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: assetAddress as `0x${string}`,
+    address: depositTokenAddress as `0x${string}`,
     abi: ERC20ABI,
     functionName: 'allowance',
     args: [userAddress!, vault],
     query: {
-      enabled: !!assetAddress && !!userAddress,
+      enabled: !!depositTokenAddress && !!userAddress,
     },
   });
   
   // Check user's asset balance
   const { data: assetBalance, refetch: refetchBalance } = useReadContract({
-    address: assetAddress as `0x${string}`,
+    address: depositTokenAddress as `0x${string}`,
     abi: ERC20ABI,
     functionName: 'balanceOf',
     args: [userAddress!],
     query: {
-      enabled: !!assetAddress && !!userAddress,
+      enabled: !!depositTokenAddress && !!userAddress,
       staleTime: 0, // Always consider data stale
       gcTime: 0, // Don't cache
       refetchInterval: 5000, // Poll every 5 seconds
@@ -86,16 +113,20 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
   // Write contract hooks
   const { writeContractAsync: writeApprove, data: approveHash } = useWriteContract();
   const { writeContractAsync: writeDeposit, data: depositHash } = useWriteContract();
+  const { writeContractAsync: writeDepositAsset, data: depositAssetHash } = useWriteContract();
   const { writeContractAsync: writeWithdraw, data: withdrawHash } = useWriteContract();
   const { writeContractAsync: writeRedeem, data: redeemHash } = useWriteContract();
   
   // Wait for transaction receipts
-  const { isLoading: isApproveConfirming, isSuccess: isApproveSuccess } = useWaitForTransactionReceipt({
+  const { isLoading: isApproveConfirming } = useWaitForTransactionReceipt({
     hash: approveHash,
   });
   
   const { isLoading: isDepositConfirming, isSuccess: isDepositSuccess } = useWaitForTransactionReceipt({
     hash: depositHash,
+  });
+  const { isLoading: isDepositAssetConfirming, isSuccess: isDepositAssetSuccess } = useWaitForTransactionReceipt({
+    hash: depositAssetHash,
   });
   
   const { isLoading: isWithdrawConfirming, isSuccess: isWithdrawSuccess } = useWaitForTransactionReceipt({
@@ -108,30 +139,42 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
   
   // Update state when confirmations complete
   useEffect(() => {
-    if (isDepositSuccess || isWithdrawSuccess || isRedeemSuccess) {
-      setTxState({ status: 'success', hash: depositHash || withdrawHash || redeemHash });
+    if (isDepositSuccess || isDepositAssetSuccess || isWithdrawSuccess || isRedeemSuccess) {
+      setTxState({ status: 'success', hash: depositHash || depositAssetHash || withdrawHash || redeemHash });
       refetchBalance();
       refetchAllowance();
     }
-  }, [isDepositSuccess, isWithdrawSuccess, isRedeemSuccess, depositHash, withdrawHash, redeemHash, refetchBalance, refetchAllowance]);
+  }, [
+    isDepositSuccess,
+    isDepositAssetSuccess,
+    isWithdrawSuccess,
+    isRedeemSuccess,
+    depositHash,
+    depositAssetHash,
+    withdrawHash,
+    redeemHash,
+    refetchBalance,
+    refetchAllowance,
+  ]);
   
   /**
    * Approve the vault to spend tokens
    */
   const approve = useCallback(async (amount?: string) => {
-    if (!assetAddress || !userAddress || !publicClient) {
+    if (!depositTokenAddress || !userAddress || !publicClient) {
       throw new Error('Not connected or asset not loaded');
     }
     
     setTxState({ status: 'approving' });
     
     try {
+      const tokenDecimals = Number(depositTokenDecimals ?? assetDecimals ?? 6);
       const amountToApprove = amount 
-        ? parseUnits(amount, decimals || 6) 
+        ? parseUnits(amount, tokenDecimals) 
         : maxUint256;
       
       const hash = await writeApprove({
-        address: assetAddress as `0x${string}`,
+        address: depositTokenAddress as `0x${string}`,
         abi: ERC20ABI,
         functionName: 'approve',
         args: [vault, amountToApprove],
@@ -147,17 +190,18 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       setTxState({ status: 'error', error: error as Error });
       throw error;
     }
-  }, [assetAddress, userAddress, vault, decimals, writeApprove, publicClient]);
+  }, [depositTokenAddress, userAddress, vault, depositTokenDecimals, assetDecimals, writeApprove, publicClient]);
   
   /**
    * Deposit assets into the vault
    */
   const deposit = useCallback(async (amount: string) => {
-    if (!userAddress) {
+    if (!userAddress || !depositTokenAddress) {
       throw new Error('Not connected');
     }
     
-    const amountParsed = parseUnits(amount, decimals || 6);
+    const tokenDecimals = Number(depositTokenDecimals ?? assetDecimals ?? 6);
+    const amountParsed = parseUnits(amount, tokenDecimals);
     
     // Check if approval is needed
     if (allowance !== undefined && allowance < amountParsed) {
@@ -170,13 +214,41 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     setTxState({ status: 'pending' });
     
     try {
-      const hash = await writeDeposit({
-        address: vault,
-        abi: PharosVaultABI,
-        functionName: 'deposit',
-        args: [amountParsed, userAddress],
-        gas: GAS_LIMITS.deposit,
-      });
+      let hash: `0x${string}`;
+      if (
+        assetAddress &&
+        depositTokenAddress.toLowerCase() === assetAddress.toLowerCase()
+      ) {
+        hash = await writeDeposit({
+          address: vault,
+          abi: PharosVaultABI,
+          functionName: 'deposit',
+          args: [amountParsed, userAddress],
+          gas: GAS_LIMITS.deposit,
+        });
+      } else {
+        if (!publicClient) throw new Error('Public client not available');
+
+        const preview = await publicClient.readContract({
+          address: vault,
+          abi: PharosVaultABI,
+          functionName: 'previewDepositAsset',
+          args: [depositTokenAddress, amountParsed],
+        }) as readonly [bigint, bigint];
+
+        const minAssetsOut = (preview[0] * 9950n) / 10000n; // 0.5% slippage buffer
+        if (preview[0] === 0n) {
+          throw new Error('Swap quote is zero. Route may be unavailable.');
+        }
+
+        hash = await writeDepositAsset({
+          address: vault,
+          abi: PharosVaultABI,
+          functionName: 'depositAsset',
+          args: [depositTokenAddress, amountParsed, minAssetsOut, userAddress],
+          gas: GAS_LIMITS.depositAsset,
+        });
+      }
       
       setTxState({ status: 'confirming', hash });
       return hash;
@@ -184,7 +256,20 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       setTxState({ status: 'error', error: error as Error });
       throw error;
     }
-  }, [userAddress, vault, decimals, allowance, approve, refetchAllowance, writeDeposit]);
+  }, [
+    userAddress,
+    depositTokenAddress,
+    depositTokenDecimals,
+    assetDecimals,
+    allowance,
+    approve,
+    refetchAllowance,
+    assetAddress,
+    publicClient,
+    vault,
+    writeDeposit,
+    writeDepositAsset,
+  ]);
   
   /**
    * Withdraw assets from the vault (specify assets amount)
@@ -197,7 +282,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     setTxState({ status: 'pending' });
     
     try {
-      const amountParsed = parseUnits(amount, decimals || 6);
+      const amountParsed = parseUnits(amount, Number(assetDecimals ?? 6));
       
       const hash = await writeWithdraw({
         address: vault,
@@ -213,7 +298,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       setTxState({ status: 'error', error: error as Error });
       throw error;
     }
-  }, [userAddress, vault, decimals, writeWithdraw]);
+  }, [userAddress, vault, assetDecimals, writeWithdraw]);
   
   /**
    * Redeem shares from the vault (specify shares amount)
@@ -226,7 +311,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     setTxState({ status: 'pending' });
     
     try {
-      const sharesParsed = parseUnits(shares, decimals || 6);
+      const sharesParsed = parseUnits(shares, Number(assetDecimals ?? 6));
       
       const hash = await writeRedeem({
         address: vault,
@@ -242,7 +327,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
       setTxState({ status: 'error', error: error as Error });
       throw error;
     }
-  }, [userAddress, vault, decimals, writeRedeem]);
+  }, [userAddress, vault, assetDecimals, writeRedeem]);
   
   /**
    * Reset transaction state
@@ -266,6 +351,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
                txState.status === 'confirming' ||
                isApproveConfirming ||
                isDepositConfirming ||
+               isDepositAssetConfirming ||
                isWithdrawConfirming ||
                isRedeemConfirming,
     isSuccess: txState.status === 'success',
@@ -273,17 +359,24 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     
     // Token info
     assetAddress: assetAddress as `0x${string}`,
-    decimals: decimals || 6,
+    decimals: assetDecimals || 6,
+    depositTokenAddress: depositTokenAddress as `0x${string}`,
+    depositTokenDecimals: depositTokenDecimals || assetDecimals || 6,
+    depositTokenSymbol: (depositTokenSymbol as string) || 'TOKEN',
+    isDepositTokenVaultAsset:
+      !!assetAddress &&
+      !!depositTokenAddress &&
+      depositTokenAddress.toLowerCase() === assetAddress.toLowerCase(),
     allowance: allowance || 0n,
     assetBalance: assetBalance || 0n,
     assetBalanceFormatted: assetBalance 
-      ? formatUnits(assetBalance, decimals || 6) 
+      ? formatUnits(assetBalance, Number(depositTokenDecimals || assetDecimals || 6)) 
       : '0',
     
     // Helper functions
     hasEnoughAllowance: (amount: string) => {
       try {
-        const amountParsed = parseUnits(amount, decimals || 6);
+        const amountParsed = parseUnits(amount, Number(depositTokenDecimals || assetDecimals || 6));
         return (allowance || 0n) >= amountParsed;
       } catch {
         return false;
@@ -291,7 +384,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
     },
     hasEnoughBalance: (amount: string) => {
       try {
-        const amountParsed = parseUnits(amount, decimals || 6);
+        const amountParsed = parseUnits(amount, Number(depositTokenDecimals || assetDecimals || 6));
         return (assetBalance || 0n) >= amountParsed;
       } catch {
         return false;

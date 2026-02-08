@@ -67,9 +67,9 @@ export default function TransparencyPage() {
   const mounted = useMounted();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
-  const { vaultData, isLoading: vaultLoading, tvl, apr } = useVaultInfo();
+  const { vaultData, isLoading: vaultLoading, tvl, projectedApr, realizedApr, maxDrawdownPercent } = useVaultInfo();
   const { isHealthy, latestProof, proofCount, reserveRatio, isDeployed: porDeployed } = usePoR();
-  const { trancheData, seniorYield, juniorYield, isDeployed: trancheDeployed, seniorAPR } = useTranches();
+  const { trancheData, juniorYield, isDeployed: trancheDeployed, seniorAPR } = useTranches();
   const { upkeepNeeded, gelatoCanExec, nextHarvestIndex, isDeployed: keeperDeployed } = useKeeperStatus();
 
   return (
@@ -89,15 +89,18 @@ export default function TransparencyPage() {
             {vaultLoading ? '...' : `$${tvl}`}
           </p>
         </Card>
-        <Card title="Est. APY">
-          <p className="text-2xl font-bold text-green-600">
-            {vaultLoading ? '...' : `${apr}%`}
+        <Card title="Projected / Realized APY">
+          <p className="text-xl font-bold text-green-600">
+            {vaultLoading ? '...' : `${projectedApr}% / ${realizedApr}%`}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Projected bucket weight + realized PPS annualization
           </p>
         </Card>
-        <Card title="Idle / Deployed">
+        <Card title="Idle / Pending / Deployed">
           <p className="text-lg font-bold text-gray-900">
             {vaultData
-              ? `${formatUSD(vaultData.idleAssets)} / ${formatUSD(vaultData.deployedAssets)}`
+              ? `${formatUSD(vaultData.idleAssets)} / ${formatUSD(vaultData.pendingAssets)} / ${formatUSD(vaultData.deployedAssets)}`
               : '...'}
           </p>
         </Card>
@@ -106,6 +109,9 @@ export default function TransparencyPage() {
             {vaultData && vaultData.totalSupply > 0n
               ? `${((Number(vaultData.totalAssets) / Number(vaultData.totalSupply)) * 1).toFixed(6)}`
               : '1.000000'}
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Max drawdown: {vaultLoading ? '...' : `${maxDrawdownPercent}%`}
           </p>
         </Card>
       </div>
@@ -342,10 +348,11 @@ export default function TransparencyPage() {
       <Card title="Asset Composition">
         {vaultData ? (
           <div className="space-y-4">
-            {/* Idle vs Deployed bar */}
+            {/* Idle vs Pending vs Deployed bar */}
             <div>
               <div className="flex justify-between text-sm text-gray-500 mb-1">
                 <span>Idle</span>
+                <span>Pending</span>
                 <span>Deployed to Strategies</span>
               </div>
               <div className="w-full h-6 rounded-full bg-gray-100 flex overflow-hidden">
@@ -361,6 +368,20 @@ export default function TransparencyPage() {
                     >
                       {(
                         (Number(vaultData.idleAssets) / Number(vaultData.totalAssets)) *
+                        100
+                      ).toFixed(0)}
+                      %
+                    </div>
+                    <div
+                      className="bg-amber-500 h-full transition-all flex items-center justify-center text-[10px] text-white font-bold"
+                      style={{
+                        width: `${
+                          (Number(vaultData.pendingAssets) / Number(vaultData.totalAssets)) * 100
+                        }%`,
+                      }}
+                    >
+                      {(
+                        (Number(vaultData.pendingAssets) / Number(vaultData.totalAssets)) *
                         100
                       ).toFixed(0)}
                       %
@@ -399,6 +420,25 @@ export default function TransparencyPage() {
                       {addr.slice(0, 8)}...{addr.slice(-6)}
                     </span>
                     <span className="text-xs text-gray-400">Strategy #{i + 1}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="text-sm">
+              <div className="font-medium text-gray-700 mb-2">
+                Supported Deposit Assets: {vaultData.supportedDepositAssets.length}
+              </div>
+              <div className="space-y-2">
+                {vaultData.supportedDepositAssets.map((addr) => (
+                  <div
+                    key={addr}
+                    className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+                  >
+                    <span className="font-mono text-xs text-gray-600">
+                      {addr.slice(0, 8)}...{addr.slice(-6)}
+                    </span>
+                    <span className="text-xs text-gray-400">Depositable</span>
                   </div>
                 ))}
               </div>

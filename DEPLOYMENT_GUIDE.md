@@ -19,6 +19,26 @@
 
 ---
 
+## 0. 2026-02 重要更新（Pending Settlement + 双 APY）
+
+当前版本新增了真实 RWA 延迟成交建模：
+
+- `setStrategyAsync(strategy, true)`：把策略标记为异步结算（例如 RWA T+1）。
+- `pendingAssets`：资金先进入 pending 桶，不会立即进入策略净值。
+- `executePendingInvestment(strategy, amount)`：成交完成后再把 pending 资金落地到策略。
+- `projectedAPY()`：按 `idle + pending + deployed` 权重计算的预期 APY。
+- `realizedAPY()`：基于 PPS（Price Per Share）变化年化的已实现 APY。
+
+部署脚本已默认配置：
+
+- RWA strategy `async = true`
+- `pendingAPY = RWA_APY`
+- `idleAPY = 0`
+
+你可以在 `/vault/live` 和 `/transparency` 看到 Idle/Pending/Deployed 与 Projected/Realized APY。
+
+---
+
 ## 1. 环境准备
 
 ### 1.1 安装 Node.js
@@ -289,7 +309,7 @@ Balance: 0.2 ETH
 
 ## 5. 运行单元测试
 
-所有合约在部署前应通过本地测试。项目包含 3 个测试文件，共 58 个测试用例。
+所有合约在部署前应通过本地测试。当前项目包含 5 个测试文件，共 68 个测试用例。
 
 ### 5.1 运行全部测试
 
@@ -335,7 +355,7 @@ npm test
   PharosVault
     ...37 existing tests...
 
-  58 passing (6s)
+  68 passing
 ```
 
 ### 5.2 测试文件说明
@@ -345,6 +365,8 @@ npm test
 | `test/PharosVault.test.ts` | 21 | 核心 Vault：部署、存取款、策略管理、费用、紧急模式、ERC4626 兼容性 |
 | `test/Strategies.test.ts` | 16 | 策略：RWA 收益计算、Lending 利息、多策略管理、策略迁移、紧急提取 |
 | `test/Advanced.test.ts` | 21 | 新功能：缓存记账、Keeper 集成、zk-POR、Timelock、RWA 适配器、Tranche 分级、加权 APY |
+| `test/MultiAssetVault.test.ts` | 5 | 多资产存入（WBTC/WBNB->USDC）与自动分配 |
+| `test/PendingAccounting.test.ts` | 5 | RWA 异步 pending 结算、分段 APY、realized APY |
 
 ### 5.3 运行单个测试文件
 
@@ -487,13 +509,18 @@ await (await vault.allocateToStrategy(deployment.contracts.SimpleLendingStrategy
 
 // 5) 查看结果
 const deployed = await vault.deployedAssets();
+const pending = await vault.pendingAssets();
 console.log("Deployed to Strategies:", ethers.formatUnits(deployed, 6), "USDC");
+console.log("Pending (async RWA):", ethers.formatUnits(pending, 6), "USDC");
+
+// 6) RWA 成交后再执行落地（例如 T+1）
+await (await vault.executePendingInvestment(deployment.contracts.RWAYieldStrategy, pending)).wait();
 ```
 
 提示：
 - 只能由 Owner 执行，否则会 revert：`Ownable: caller is not the owner`
 - Sepolia 用 `deployments/sepolia-*.json`，Pharos Testnet 用 `deployments/pharos-testnet-*.json`
-- 执行后刷新前端，`Deployed to Strategies` 将会增加
+- 当前默认 RWA 为 async：先进入 `pendingAssets`，执行 `executePendingInvestment` 后才进入 `deployedAssets`
 
 ### 7.4 查看持仓
 
@@ -770,11 +797,11 @@ console.log("RWA shares held:", shares.toString());
 
 | 模块 | 展示内容 |
 |------|---------|
-| **Key Metrics** | TVL、APY、闲置/已部署资金比例、份额价格 |
+| **Key Metrics** | TVL、Projected/Realized APY、Idle/Pending/Deployed、份额价格与最大回撤 |
 | **zk-Proof of Reserve** | 储备金健康状态、储备率、最新证明详情、验证状态 |
 | **Keeper Status** | Chainlink Upkeep 状态、Gelato 可执行状态、轮询索引 |
 | **Risk Tranches** | Senior/Junior 存款、总资产、目标APR、瀑布分配比例条 |
-| **Asset Composition** | 闲置/已部署资金分布条、活跃策略列表 |
+| **Asset Composition** | 闲置/待成交/已部署资金分布条、活跃策略列表 |
 | **Fee & Governance** | 管理费、绩效费、存款限额、Timelock 地址 |
 
 ---
@@ -877,7 +904,9 @@ pharos-vault/contracts/
 pharos-vault/test/
 ├── PharosVault.test.ts     # 核心 Vault 测试 (21 cases)
 ├── Strategies.test.ts      # 策略测试 (16 cases)
-└── Advanced.test.ts        # 高级功能测试 (21 cases)
+├── Advanced.test.ts        # 高级功能测试 (21 cases)
+├── MultiAssetVault.test.ts # 多资产存入与路由测试 (5 cases)
+└── PendingAccounting.test.ts # Pending 结算与分段 APY 测试 (5 cases)
     ├─ Cached Accounting      # 缓存记账 & VaultSnapshot
     ├─ Keeper Integration      # harvestNext, checkUpkeep, checker
     ├─ zk-POR Registry         # 证明提交, 健康检查, 权限控制

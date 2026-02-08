@@ -13,6 +13,25 @@
 
 ---
 
+## 2026-02 Update Summary
+
+The vault now supports delayed RWA execution with explicit pending accounting:
+
+- `setStrategyAsync(strategy, true)` marks strategy as async settlement.
+- `pendingAssets` tracks reserved capital before external RWA execution.
+- `executePendingInvestment(strategy, amount)` finalizes pending into deployed debt.
+- `projectedAPY()` uses weighted idle/pending/deployed buckets.
+- `realizedAPY()` and `maxDrawdownBps()` provide PPS-based performance metrics.
+
+Additional tests were added in:
+
+- `test/MultiAssetVault.test.ts`
+- `test/PendingAccounting.test.ts`
+
+Current suite: **68 passing tests**.
+
+---
+
 ## 📋 目录
 
 - [项目概述](#-项目概述)

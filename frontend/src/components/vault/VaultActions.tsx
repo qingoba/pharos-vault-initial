@@ -2,16 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useChainId } from 'wagmi';
-import { useVaultActions, useMintTestTokens, useUserPosition } from '@/hooks';
+import { useVaultActions, useMintTestTokens, useUserPosition, useVaultInfo } from '@/hooks';
 import { getContracts } from '@/lib/contracts';
 
 export function VaultActions({ vaultId }: { vaultId: string }) {
-  const { isConnected, address } = useAccount();
+  const { isConnected } = useAccount();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
   
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<'deposit' | 'withdraw'>('deposit');
+  const [selectedDepositAsset, setSelectedDepositAsset] = useState<`0x${string}` | undefined>(undefined);
   const [amount, setAmount] = useState('');
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
@@ -20,25 +21,30 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
     setMounted(true);
   }, []);
 
+  const { vaultData } = useVaultInfo(contracts.PharosVault);
+
+  useEffect(() => {
+    if (!selectedDepositAsset && vaultData?.assetAddress) {
+      setSelectedDepositAsset(vaultData.assetAddress);
+    }
+  }, [vaultData?.assetAddress, selectedDepositAsset]);
+
   // Contract hooks
   const {
     deposit,
     withdraw,
-    approve,
     reset: resetVaultActions,
     isLoading: isVaultLoading,
-    isSuccess: isVaultSuccess,
-    isError: isVaultError,
     txState,
     assetBalanceFormatted,
-    hasEnoughAllowance,
     hasEnoughBalance,
-    decimals,
     refetchBalance,
     assetAddress,
-  } = useVaultActions(contracts.PharosVault);
+    depositTokenAddress,
+    depositTokenSymbol,
+  } = useVaultActions(contracts.PharosVault, selectedDepositAsset);
 
-  const { position, sharesFormatted, valueFormatted, refetch: refetchPosition } = useUserPosition(contracts.PharosVault);
+  const { sharesFormatted, valueFormatted, refetch: refetchPosition } = useUserPosition(contracts.PharosVault);
 
   const { mint: mintTokens, isLoading: isMinting } = useMintTestTokens(contracts.USDC);
 
@@ -53,7 +59,9 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
     } else if (txState.status === 'success') {
       setStatusMessage({ 
         type: 'success', 
-        text: tab === 'deposit' ? 'Deposit successful!' : 'Withdrawal successful!' 
+        text: tab === 'deposit'
+          ? `Deposit successful (${depositTokenSymbol})!`
+          : 'Withdrawal successful!'
       });
       setAmount('');
       refetchPosition();
@@ -68,7 +76,7 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
         text: txState.error?.message || 'Transaction failed' 
       });
     }
-  }, [txState, tab, refetchPosition, resetVaultActions]);
+  }, [txState, tab, refetchPosition, resetVaultActions, depositTokenSymbol]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +131,24 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
     }
   };
 
+  const resolveTokenLabel = (token: `0x${string}`) => {
+    if (vaultData?.assetAddress && token.toLowerCase() === vaultData.assetAddress.toLowerCase()) {
+      return 'USDC (Vault Asset)';
+    }
+    if (token.toLowerCase() === contracts.WBTC.toLowerCase()) return 'WBTC';
+    if (token.toLowerCase() === contracts.WBNB.toLowerCase()) return 'WBNB';
+    return `${token.slice(0, 6)}...${token.slice(-4)}`;
+  };
+
+  const depositAssetOptions: `0x${string}`[] = vaultData
+    ? [
+        vaultData.assetAddress,
+        ...vaultData.supportedDepositAssets.filter(
+          (a) => a.toLowerCase() !== vaultData.assetAddress.toLowerCase()
+        ),
+      ]
+    : [];
+
   // Show loading skeleton during SSR/hydration to prevent mismatch
   if (!mounted) {
     return (
@@ -148,7 +174,9 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
       {process.env.NODE_ENV === 'development' && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs font-mono">
           <div>Vault: {contracts.PharosVault}</div>
+          <div>Vault ID: {vaultId}</div>
           <div>Asset from vault: {assetAddress || 'Loading...'}</div>
+          <div>Selected deposit token: {depositTokenAddress || 'Loading...'}</div>
           <div>Expected USDC: {contracts.USDC}</div>
           <div>Balance: {assetBalanceFormatted}</div>
         </div>
@@ -190,7 +218,9 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
         {tab === 'deposit' ? (
           <div className="flex justify-between">
             <span className="text-gray-500">Available Balance:</span>
-            <span className="font-medium">{parseFloat(assetBalanceFormatted).toLocaleString('en-US')} USDC</span>
+            <span className="font-medium">
+              {parseFloat(assetBalanceFormatted).toLocaleString('en-US')} {depositTokenSymbol}
+            </span>
           </div>
         ) : (
           <>
@@ -208,12 +238,36 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
 
       {/* Form */}
       <form onSubmit={handleSubmit}>
+        {tab === 'deposit' && depositAssetOptions.length > 0 && (
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Deposit Asset
+            </label>
+            <select
+              value={selectedDepositAsset}
+              onChange={(e) => setSelectedDepositAsset(e.target.value as `0x${string}`)}
+              className="w-full p-2.5 border border-gray-200 rounded-lg text-sm"
+              disabled={isVaultLoading || !isValidContract}
+            >
+              {depositAssetOptions.map((token) => (
+                <option key={token} value={token}>
+                  {resolveTokenLabel(token)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div className="relative mb-4">
           <input
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder={tab === 'deposit' ? 'Amount to deposit' : 'Amount to withdraw'}
+            placeholder={
+              tab === 'deposit'
+                ? `Amount to deposit (${depositTokenSymbol})`
+                : 'Amount to withdraw'
+            }
             className="w-full p-3 pr-16 border border-gray-200 rounded-lg"
             disabled={isVaultLoading || !isValidContract}
             step="any"
@@ -254,7 +308,7 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
               Processing...
             </span>
           ) : (
-            tab === 'deposit' ? 'Deposit' : 'Withdraw'
+            tab === 'deposit' ? `Deposit ${depositTokenSymbol}` : 'Withdraw'
           )}
         </button>
       </form>

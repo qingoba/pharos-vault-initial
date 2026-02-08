@@ -41,6 +41,8 @@ async function main() {
   const YIELD_PROVIDER = deployer.address;
   const RWA_APY = 500;  // 5% APY
   const LENDING_APY = 300;  // 3% APY
+  const WBTC_TO_USDC_RATE = 600n * 10n ** 18n; // 1 WBTC -> 60,000 USDC
+  const WBNB_TO_USDC_RATE = 500n * 10n ** 6n;  // 1 WBNB -> 500 USDC
 
   console.log("Deployment Parameters:");
   console.log("├── Fee Recipient:", FEE_RECIPIENT);
@@ -54,6 +56,15 @@ async function main() {
   const usdc = await MockUSDC.deploy();
   await usdc.waitForDeployment();
   const usdcAddress = await usdc.getAddress();
+  const MockERC20 = await ethers.getContractFactory("MockERC20");
+  const wbtc = await MockERC20.deploy("Wrapped BTC", "WBTC", 8);
+  await wbtc.waitForDeployment();
+  const wbtcAddress = await wbtc.getAddress();
+  const wbnb = await MockERC20.deploy("Wrapped BNB", "WBNB", 18);
+  await wbnb.waitForDeployment();
+  const wbnbAddress = await wbnb.getAddress();
+  console.log("WBTC:", wbtcAddress);
+  console.log("WBNB:", wbnbAddress);
   console.log("✓ MockUSDC deployed:", usdcAddress);
 
   // ===================== 2. Deploy PharosVault =====================
@@ -167,6 +178,25 @@ async function main() {
   console.log("  Adding Lending Strategy (40% allocation)...");
   const tx2 = await vault.addStrategy(lendingStrategyAddress, 4000);
   await tx2.wait();
+  const tx3 = await vault.setStrategyAsync(rwaStrategyAddress, true);
+  await tx3.wait();
+  const tx4 = await vault.setPendingAPY(RWA_APY);
+  await tx4.wait();
+  const tx5 = await vault.setIdleAPY(0);
+  await tx5.wait();
+
+  // Multi-asset deposit router
+  const MockSwapRouter = await ethers.getContractFactory("MockSwapRouter");
+  const swapRouter = await MockSwapRouter.deploy();
+  await swapRouter.waitForDeployment();
+  const swapRouterAddress = await swapRouter.getAddress();
+
+  await swapRouter.setRoute(wbtcAddress, usdcAddress, WBTC_TO_USDC_RATE, true);
+  await swapRouter.setRoute(wbnbAddress, usdcAddress, WBNB_TO_USDC_RATE, true);
+
+  await (await vault.setSwapRouter(swapRouterAddress)).wait();
+  await (await vault.setSupportedDepositAsset(wbtcAddress, true)).wait();
+  await (await vault.setSupportedDepositAsset(wbnbAddress, true)).wait();
   console.log("  ✓ Lending Strategy added");
 
   // Mint test tokens
@@ -174,6 +204,9 @@ async function main() {
   const mintAmount = ethers.parseUnits("1000000", 6); // 1M USDC
   await usdc.mint(deployer.address, mintAmount);
   await usdc.mint(YIELD_PROVIDER, mintAmount);
+  await usdc.mint(swapRouterAddress, ethers.parseUnits("100000000", 6));
+  await wbtc.mint(deployer.address, 10n * 10n ** 8n);
+  await wbnb.mint(deployer.address, ethers.parseUnits("5000", 18));
   console.log("  ✓ Minted 2,000,000 USDC (1M to deployer, 1M to yield provider)");
 
   // Approve strategy to pull yield
@@ -237,7 +270,10 @@ async function main() {
 
   const addresses = {
     USDC: usdcAddress,
+    WBTC: wbtcAddress,
+    WBNB: wbnbAddress,
     PharosVault: vaultAddress,
+    SwapRouter: swapRouterAddress,
     RWAYieldStrategy: rwaStrategyAddress,
     SimpleLendingStrategy: lendingStrategyAddress,
     RWAAdapterStrategy: rwaAdapterAddress,
@@ -272,9 +308,12 @@ async function main() {
     const newContractsBlock = `export const ${contractBlockName} = {
   // Core Token
   USDC: '${usdcAddress}' as \`0x\${string}\`,
+  WBTC: '${wbtcAddress}' as \`0x\${string}\`,
+  WBNB: '${wbnbAddress}' as \`0x\${string}\`,
   
   // Vault
   PharosVault: '${vaultAddress}' as \`0x\${string}\`,
+  SwapRouter: '${swapRouterAddress}' as \`0x\${string}\`,
   
   // Strategies
   RWAYieldStrategy: '${rwaStrategyAddress}' as \`0x\${string}\`,
@@ -299,7 +338,10 @@ async function main() {
     console.log("  File: frontend/src/lib/contracts/addresses.ts");
     console.log(`\n  Copy these addresses to ${contractBlockName}:`);
     console.log(`    USDC: '${usdcAddress}'`);
+    console.log(`    WBTC: '${wbtcAddress}'`);
+    console.log(`    WBNB: '${wbnbAddress}'`);
     console.log(`    PharosVault: '${vaultAddress}'`);
+    console.log(`    SwapRouter: '${swapRouterAddress}'`);
     console.log(`    RWAYieldStrategy: '${rwaStrategyAddress}'`);
     console.log(`    SimpleLendingStrategy: '${lendingStrategyAddress}'`);
   }
@@ -318,6 +360,13 @@ async function main() {
       lendingStrategyAPY: "3%",
       rwaAllocation: "60%",
       lendingAllocation: "40%",
+      rwaAsyncSettlement: true,
+      pendingApy: "5%",
+      autoAllocate: true,
+      multiAsset: {
+        wbtcToUsdcRate: WBTC_TO_USDC_RATE.toString(),
+        wbnbToUsdcRate: WBNB_TO_USDC_RATE.toString(),
+      },
     },
   };
 

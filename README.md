@@ -167,6 +167,21 @@ Pharos Vault is an ERC4626-compliant yield vault protocol designed for the Pharo
 - **RWA Protocol Adapter** - ERC4626-to-ERC4626 adapter for external RWA yield sources
 - **Transparency Dashboard** - Real-time portfolio, APY, zk-POR, and tranche data
 - **Emergency Mode** - Emergency pause and fund withdrawal mechanisms
+- **Pending Settlement Bucket** - Async RWA allocations are accounted as `pendingAssets` before final investment
+- **Dual APY Metrics** - `projectedAPY` (bucket-weighted) + `realizedAPY` (annualized PPS change)
+
+### Pending Settlement Model
+
+When a strategy is marked async (`setStrategyAsync(strategy, true)`), auto-allocation does not immediately invest funds:
+
+1. Funds are reserved in `pendingAssets`.
+2. `projectedAPY` includes pending bucket APY (`pendingAPY`) during settlement delay.
+3. Operator finalizes execution with `executePendingInvestment(strategy, amount)`.
+
+Useful view functions:
+
+- `getAssetBreakdown()` -> idle / pending / deployed / freeIdle
+- `maxDrawdownBps()` -> PPS-based max drawdown
 
 ### 🔧 Quick Start
 

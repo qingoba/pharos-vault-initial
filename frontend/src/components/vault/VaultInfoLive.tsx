@@ -13,7 +13,16 @@ export function VaultInfoLive() {
   const chainId = useChainId();
   const contracts = getContracts(chainId);
   
-  const { vaultData, isLoading, tvl, apr, managementFeePercent, performanceFeePercent } = useVaultInfo(contracts.PharosVault);
+  const {
+    vaultData,
+    isLoading,
+    tvl,
+    projectedApr,
+    realizedApr,
+    maxDrawdownPercent,
+    managementFeePercent,
+    performanceFeePercent,
+  } = useVaultInfo(contracts.PharosVault);
 
   const isValidContract = contracts.PharosVault !== '0x0000000000000000000000000000000000000000';
 
@@ -80,8 +89,9 @@ export function VaultInfoLive() {
 
   // If actual APY is 0, show target APY
   // Target APY: RWA = 5%, Lending = 3%, weighted average ≈ 4%
-  const displayApr = parseFloat(apr) > 0 ? apr : '4.00';
-  const isTargetApy = parseFloat(apr) === 0;
+  const displayProjectedApr = parseFloat(projectedApr) > 0 ? projectedApr : '4.00';
+  const isTargetApy = parseFloat(projectedApr) === 0;
+  const realizedValue = parseFloat(realizedApr);
 
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl">
@@ -140,19 +150,21 @@ export function VaultInfoLive() {
           <p className="text-xs text-gray-400">{vaultData.strategies.length} strategies</p>
         </div>
         <div className="p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-500">Estimated APY</p>
-          <p className="text-xl font-bold text-[var(--primary)]">{displayApr}%</p>
-          <p className="text-xs text-gray-400">{isTargetApy ? 'Target (no history yet)' : 'Based on performance'}</p>
+          <p className="text-sm text-gray-500">Projected APY</p>
+          <p className="text-xl font-bold text-[var(--primary)]">{displayProjectedApr}%</p>
+          <p className="text-xs text-gray-400">{isTargetApy ? 'Target (no history yet)' : 'Bucket weighted (idle/pending/deployed)'}</p>
         </div>
         <div className="p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-500">Management Fee</p>
-          <p className="text-xl font-bold">{managementFeePercent}%</p>
-          <p className="text-xs text-gray-400">Annualized</p>
+          <p className="text-sm text-gray-500">Realized APY</p>
+          <p className={`text-xl font-bold ${realizedValue >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {realizedValue.toFixed(2)}%
+          </p>
+          <p className="text-xs text-gray-400">Annualized from PPS change</p>
         </div>
         <div className="p-3 bg-gray-50 rounded-lg">
-          <p className="text-sm text-gray-500">Performance Fee</p>
-          <p className="text-xl font-bold">{performanceFeePercent}%</p>
-          <p className="text-xs text-gray-400">On profits</p>
+          <p className="text-sm text-gray-500">Max Drawdown</p>
+          <p className="text-xl font-bold">{maxDrawdownPercent}%</p>
+          <p className="text-xs text-gray-400">Since launch (PPS based)</p>
         </div>
       </div>
 
@@ -167,12 +179,24 @@ export function VaultInfoLive() {
           </span>
         </div>
         <div className="flex justify-between text-sm mt-1">
+          <span className="text-gray-500">Pending Allocation:</span>
+          <span className="font-medium">
+            ${parseFloat(tvl) > 0 ? 
+              ((Number(vaultData.pendingAssets) / Math.pow(10, vaultData.decimals))).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
+              : '0'}
+          </span>
+        </div>
+        <div className="flex justify-between text-sm mt-1">
           <span className="text-gray-500">Deployed to Strategies:</span>
           <span className="font-medium">
             ${parseFloat(tvl) > 0 ? 
               ((Number(vaultData.deployedAssets) / Math.pow(10, vaultData.decimals))).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
               : '0'}
           </span>
+        </div>
+        <div className="flex justify-between text-sm mt-1">
+          <span className="text-gray-500">Management / Performance Fee:</span>
+          <span className="font-medium">{managementFeePercent}% / {performanceFeePercent}%</span>
         </div>
       </div>
     </div>

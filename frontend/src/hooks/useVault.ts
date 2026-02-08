@@ -21,10 +21,20 @@ export interface VaultData {
   performanceFee: number; // in basis points
   depositLimit: bigint;
   emergencyShutdown: boolean;
+  swapRouter: `0x${string}`;
+  autoAllocate: boolean;
   idleAssets: bigint;
+  freeIdleAssets: bigint;
+  pendingAssets: bigint;
   deployedAssets: bigint;
   estimatedAPY: number; // in basis points
+  projectedAPY: number; // in basis points
+  realizedAPY: number; // in basis points, signed
+  maxDrawdownBps: number;
+  idleAPY: number; // in basis points
+  pendingAPY: number; // in basis points
   strategies: `0x${string}`[];
+  supportedDepositAssets: `0x${string}`[];
 }
 
 export interface StrategyData {
@@ -73,10 +83,20 @@ export function useVaultInfo(vaultAddress?: `0x${string}`) {
       { address, abi: PharosVaultABI, functionName: 'performanceFee' },
       { address, abi: PharosVaultABI, functionName: 'depositLimit' },
       { address, abi: PharosVaultABI, functionName: 'emergencyShutdown' },
+      { address, abi: PharosVaultABI, functionName: 'swapRouter' },
+      { address, abi: PharosVaultABI, functionName: 'autoAllocate' },
       { address, abi: PharosVaultABI, functionName: 'idleAssets' },
+      { address, abi: PharosVaultABI, functionName: 'freeIdleAssets' },
+      { address, abi: PharosVaultABI, functionName: 'pendingAssets' },
       { address, abi: PharosVaultABI, functionName: 'deployedAssets' },
       { address, abi: PharosVaultABI, functionName: 'estimatedAPY' },
+      { address, abi: PharosVaultABI, functionName: 'projectedAPY' },
+      { address, abi: PharosVaultABI, functionName: 'realizedAPY' },
+      { address, abi: PharosVaultABI, functionName: 'maxDrawdownBps' },
+      { address, abi: PharosVaultABI, functionName: 'idleAPY' },
+      { address, abi: PharosVaultABI, functionName: 'pendingAPY' },
       { address, abi: PharosVaultABI, functionName: 'getStrategies' },
+      { address, abi: PharosVaultABI, functionName: 'getSupportedDepositAssets' },
     ],
     query: {
       enabled: isValidAddress,
@@ -95,10 +115,20 @@ export function useVaultInfo(vaultAddress?: `0x${string}`) {
     performanceFee: Number(data[7].result),
     depositLimit: data[8].result as bigint,
     emergencyShutdown: data[9].result as boolean,
-    idleAssets: data[10].result as bigint,
-    deployedAssets: data[11].result as bigint,
-    estimatedAPY: Number(data[12].result),
-    strategies: (data[13].result as `0x${string}`[]) || [],
+    swapRouter: data[10].result as `0x${string}`,
+    autoAllocate: data[11].result as boolean,
+    idleAssets: data[12].result as bigint,
+    freeIdleAssets: data[13].result as bigint,
+    pendingAssets: data[14].result as bigint,
+    deployedAssets: data[15].result as bigint,
+    estimatedAPY: Number(data[16].result),
+    projectedAPY: Number(data[17].result),
+    realizedAPY: Number(data[18].result),
+    maxDrawdownBps: Number(data[19].result),
+    idleAPY: Number(data[20].result),
+    pendingAPY: Number(data[21].result),
+    strategies: (data[22].result as `0x${string}`[]) || [],
+    supportedDepositAssets: (data[23].result as `0x${string}`[]) || [],
   } : null;
 
   return {
@@ -108,7 +138,10 @@ export function useVaultInfo(vaultAddress?: `0x${string}`) {
     refetch,
     // Computed values
     tvl: vaultData ? formatUnits(vaultData.totalAssets, vaultData.decimals) : '0',
-    apr: vaultData ? (vaultData.estimatedAPY / 100).toFixed(2) : '0',
+    apr: vaultData ? (vaultData.projectedAPY / 100).toFixed(2) : '0',
+    projectedApr: vaultData ? (vaultData.projectedAPY / 100).toFixed(2) : '0',
+    realizedApr: vaultData ? (vaultData.realizedAPY / 100).toFixed(2) : '0',
+    maxDrawdownPercent: vaultData ? (vaultData.maxDrawdownBps / 100).toFixed(2) : '0',
     managementFeePercent: vaultData ? (vaultData.managementFee / 100).toFixed(2) : '0',
     performanceFeePercent: vaultData ? (vaultData.performanceFee / 100).toFixed(2) : '0',
   };
@@ -211,6 +244,17 @@ export function useStrategyInfo(strategyAddress: `0x${string}`, vaultAddress?: `
     },
   });
 
+  const params = vaultStrategyParams as
+    | {
+        activation: bigint;
+        debtRatio: bigint;
+        totalDebt: bigint;
+        totalGain: bigint;
+        totalLoss: bigint;
+        lastReport: bigint;
+      }
+    | undefined;
+
   const strategy: StrategyData | null = strategyData && strategyData[0].status === 'success' ? {
     address: strategyAddress,
     name: strategyData[0].result as string,
@@ -220,12 +264,12 @@ export function useStrategyInfo(strategyAddress: `0x${string}`, vaultAddress?: `
     lastHarvest: Number(strategyData[4].result),
     totalProfit: strategyData[5].result as bigint,
     // From vault params
-    activation: vaultStrategyParams ? Number(vaultStrategyParams[0]) : 0,
-    debtRatio: vaultStrategyParams ? Number(vaultStrategyParams[1]) : 0,
-    totalDebt: vaultStrategyParams ? vaultStrategyParams[2] : 0n,
-    totalGain: vaultStrategyParams ? vaultStrategyParams[3] : 0n,
-    totalLoss: vaultStrategyParams ? vaultStrategyParams[4] : 0n,
-    lastReport: vaultStrategyParams ? Number(vaultStrategyParams[5]) : 0,
+    activation: params ? Number(params.activation) : 0,
+    debtRatio: params ? Number(params.debtRatio) : 0,
+    totalDebt: params ? params.totalDebt : 0n,
+    totalGain: params ? params.totalGain : 0n,
+    totalLoss: params ? params.totalLoss : 0n,
+    lastReport: params ? Number(params.lastReport) : 0,
   } : null;
 
   return {

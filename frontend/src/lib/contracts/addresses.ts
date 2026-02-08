@@ -8,9 +8,12 @@
 export const PHAROS_TESTNET_CONTRACTS = {
   // Core Token
   USDC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBTC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBNB: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   
   // Vault
   PharosVault: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  SwapRouter: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   
   // Strategies
   RWAYieldStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
@@ -27,26 +30,32 @@ export const PHAROS_TESTNET_CONTRACTS = {
 // Update these after deploying to Sepolia with npm run deploy:sepolia
 export const SEPOLIA_CONTRACTS = {
   // Core Token
-  USDC: '0x8E14Ea3659202E0fde2E94DCD8956c8E98B19ec6' as `0x${string}`,
+  USDC: '0xca423B0fC4117bFc2125A4bcd49f192fa989E3C6' as `0x${string}`,
+  WBTC: '0x879019D2cF514d583214B83A96D9574D3565b144' as `0x${string}`,
+  WBNB: '0xc2890Cd0Bec76d3Ec1842b77a60024541A6e37DB' as `0x${string}`,
   
   // Vault
-  PharosVault: '0xC636aAA726dBb9298882CddA9BCedfa11CDe453b' as `0x${string}`,
+  PharosVault: '0x86AD58952202645198Be2d21f24CA5aBCE8D10F9' as `0x${string}`,
+  SwapRouter: '0x6205A429cE70F18214d4EFD00689e269d51D2497' as `0x${string}`,
   
   // Strategies
-  RWAYieldStrategy: '0x85bfdcd00E0bBb9dDce3dcD2A58A62380703AdA6' as `0x${string}`,
-  SimpleLendingStrategy: '0x7eb44f73368d14DBE4c2E30F8490a60513Fe17B0' as `0x${string}`,
-  RWAAdapterStrategy: '0xe6f491B9ffb23B576E04f6f41967877D48DefECc' as `0x${string}`,
+  RWAYieldStrategy: '0xd4FB18312e5B3fA5f4C30f607779C4fC61E9bA21' as `0x${string}`,
+  SimpleLendingStrategy: '0x6ED57277FD6dB02D4796b14cEed977f417655070' as `0x${string}`,
+  RWAAdapterStrategy: '0xD5b917e89821CFa39f51efB39e0A0C02B54142CD' as `0x${string}`,
   
   // Advanced modules
-  PorRegistry: '0x7901d6F2eD0D5b69Cc7a22EbEdce50E70E54700c' as `0x${string}`,
-  TrancheManager: '0xC966eE52484EA77Fe8DFB3ae54bc3dc3D199b386' as `0x${string}`,
-  PharosTimelock: '0x9111f103671152037F910D311ACd07E340401927' as `0x${string}`,
+  PorRegistry: '0x7C12daCb2eD8894390F9aA8dA86c42eBeD83C8E7' as `0x${string}`,
+  TrancheManager: '0xCF77f7F90bAC3F0Ab17008caaf6D12f82845F82c' as `0x${string}`,
+  PharosTimelock: '0xDa360ee947930dbfC7fb1E0e837142d787083B9B' as `0x${string}`,
 } as const;
 
 // Pharos Mainnet Contract Addresses (for future use)
 export const PHAROS_MAINNET_CONTRACTS = {
   USDC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBTC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBNB: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   PharosVault: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  SwapRouter: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   RWAYieldStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   SimpleLendingStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   RWAAdapterStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
@@ -58,7 +67,10 @@ export const PHAROS_MAINNET_CONTRACTS = {
 // Local Development Contract Addresses
 export const LOCAL_CONTRACTS = {
   USDC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBTC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBNB: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   PharosVault: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  SwapRouter: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   RWAYieldStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   SimpleLendingStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   RWAAdapterStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,

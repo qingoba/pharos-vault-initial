@@ -171,6 +171,21 @@ export const PharosVaultABI = [
     stateMutability: 'nonpayable',
     type: 'function',
   },
+  {
+    inputs: [
+      { name: 'tokenIn', type: 'address' },
+      { name: 'amountIn', type: 'uint256' },
+      { name: 'minAssetsOut', type: 'uint256' },
+      { name: 'receiver', type: 'address' },
+    ],
+    name: 'depositAsset',
+    outputs: [
+      { name: 'shares', type: 'uint256' },
+      { name: 'assetsDeposited', type: 'uint256' },
+    ],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
   
   // Vault 特有函数
   {
@@ -229,6 +244,82 @@ export const PharosVaultABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'swapRouter',
+    outputs: [{ name: '', type: 'address' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'autoAllocate',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'pendingAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'idleAPY',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'pendingAPY',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'realizedAPY',
+    outputs: [{ name: '', type: 'int256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'maxDrawdownBps',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getSupportedDepositAssets',
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'asset_', type: 'address' }],
+    name: 'isSupportedDepositAsset',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'tokenIn', type: 'address' },
+      { name: 'amountIn', type: 'uint256' },
+    ],
+    name: 'previewDepositAsset',
+    outputs: [
+      { name: 'assetsOut', type: 'uint256' },
+      { name: 'sharesOut', type: 'uint256' },
+    ],
+    stateMutability: 'view',
+    type: 'function',
+  },
   
   // 策略管理
   {
@@ -255,6 +346,13 @@ export const PharosVaultABI = [
   {
     inputs: [{ name: 'strategy', type: 'address' }],
     name: 'isActiveStrategy',
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'strategy', type: 'address' }],
+    name: 'isAsyncStrategy',
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
     type: 'function',
@@ -288,7 +386,28 @@ export const PharosVaultABI = [
   },
   {
     inputs: [],
+    name: 'freeIdleAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: 'strategy', type: 'address' }],
+    name: 'pendingAssetsByStrategy',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
     name: 'deployedAssets',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'projectedAPY',
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
     type: 'function',
@@ -297,6 +416,25 @@ export const PharosVaultABI = [
     inputs: [],
     name: 'estimatedAPY',
     outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'currentPricePerShare',
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+    type: 'function',
+  },
+  {
+    inputs: [],
+    name: 'getAssetBreakdown',
+    outputs: [
+      { name: 'idle', type: 'uint256' },
+      { name: 'pending', type: 'uint256' },
+      { name: 'deployed', type: 'uint256' },
+      { name: 'freeIdle', type: 'uint256' },
+    ],
     stateMutability: 'view',
     type: 'function',
   },
@@ -328,6 +466,16 @@ export const PharosVaultABI = [
   {
     inputs: [{ name: 'strategy', type: 'address' }],
     name: 'harvestStrategy',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [
+      { name: 'strategy', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'executePendingInvestment',
     outputs: [],
     stateMutability: 'nonpayable',
     type: 'function',
@@ -371,6 +519,19 @@ export const PharosVaultABI = [
       { indexed: false, name: 'shares', type: 'uint256' },
     ],
     name: 'Deposit',
+    type: 'event',
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, name: 'sender', type: 'address' },
+      { indexed: true, name: 'receiver', type: 'address' },
+      { indexed: true, name: 'tokenIn', type: 'address' },
+      { indexed: false, name: 'amountIn', type: 'uint256' },
+      { indexed: false, name: 'assetsOut', type: 'uint256' },
+      { indexed: false, name: 'shares', type: 'uint256' },
+    ],
+    name: 'MultiAssetDeposited',
     type: 'event',
   },
   {
