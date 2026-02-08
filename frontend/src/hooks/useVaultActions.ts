@@ -8,7 +8,7 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount, useChainId, usePublicClient } from 'wagmi';
 import { parseUnits, formatUnits, maxUint256 } from 'viem';
 import { useState, useCallback, useEffect } from 'react';
-import { PharosVaultABI, ERC20ABI, getContracts } from '@/lib/contracts';
+import { PharosVaultABI, ERC20ABI, StrategyABI, getContracts } from '@/lib/contracts';
 
 // Gas limits for different operations
 const GAS_LIMITS = {
@@ -343,7 +343,7 @@ export function useVaultActions(vaultAddress?: `0x${string}`) {
 }
 
 /**
- * Hook for vault admin actions (harvest)
+ * Hook for vault admin actions (harvest, allocate)
  */
 export function useVaultAdmin(vaultAddress?: `0x${string}`) {
   const chainId = useChainId();
@@ -354,16 +354,18 @@ export function useVaultAdmin(vaultAddress?: `0x${string}`) {
   
   const { writeContractAsync: writeHarvest, data: harvestHash } = useWriteContract();
   const { writeContractAsync: writeHarvestAll, data: harvestAllHash } = useWriteContract();
+  const { writeContractAsync: writeAllocate, data: allocateHash } = useWriteContract();
+  const { writeContractAsync: writeInjectYield, data: injectHash } = useWriteContract();
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
-    hash: harvestHash || harvestAllHash,
+    hash: harvestHash || harvestAllHash || allocateHash || injectHash,
   });
   
   useEffect(() => {
     if (isSuccess) {
-      setTxState({ status: 'success', hash: harvestHash || harvestAllHash });
+      setTxState({ status: 'success', hash: harvestHash || harvestAllHash || allocateHash || injectHash });
     }
-  }, [isSuccess, harvestHash, harvestAllHash]);
+  }, [isSuccess, harvestHash, harvestAllHash, allocateHash, injectHash]);
   
   /**
    * Harvest a specific strategy
@@ -413,9 +415,55 @@ export function useVaultAdmin(vaultAddress?: `0x${string}`) {
     setTxState({ status: 'idle' });
   }, []);
   
+  /**
+   * Allocate funds to a specific strategy
+   */
+  const allocateToStrategy = useCallback(async (strategyAddress: `0x${string}`, amount: bigint) => {
+    setTxState({ status: 'pending' });
+    
+    try {
+      const hash = await writeAllocate({
+        address: vault,
+        abi: PharosVaultABI,
+        functionName: 'allocateToStrategy',
+        args: [strategyAddress, amount],
+      });
+      
+      setTxState({ status: 'confirming', hash });
+      return hash;
+    } catch (error) {
+      setTxState({ status: 'error', error: error as Error });
+      throw error;
+    }
+  }, [vault, writeAllocate]);
+  
+  /**
+   * Inject yield into a strategy (simulate off-chain yield)
+   */
+  const injectYield = useCallback(async (strategyAddress: `0x${string}`, amount: bigint) => {
+    setTxState({ status: 'pending' });
+    
+    try {
+      const hash = await writeInjectYield({
+        address: strategyAddress,
+        abi: StrategyABI,
+        functionName: 'injectYield',
+        args: [amount],
+      });
+      
+      setTxState({ status: 'confirming', hash });
+      return hash;
+    } catch (error) {
+      setTxState({ status: 'error', error: error as Error });
+      throw error;
+    }
+  }, [writeInjectYield]);
+  
   return {
     harvestStrategy,
     harvestAll,
+    allocateToStrategy,
+    injectYield,
     reset,
     txState,
     isLoading: txState.status === 'pending' || txState.status === 'confirming' || isConfirming,

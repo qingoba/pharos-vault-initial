@@ -46,8 +46,11 @@ contract MockRWAYieldStrategy is BaseStrategy {
     /// @notice 上次计算收益的时间
     uint256 public lastAccrualTime;
     
-    /// @notice 累计待收获的收益
+    /// @notice 累计待收获的收益 (时间累积，需从 provider 拉取)
     uint256 public pendingYield;
+    
+    /// @notice 已注入的收益 (资金已在合约中，无需再拉取)
+    uint256 public injectedYield;
     
     /// @notice RWA Provider 地址 (模拟外部收益来源)
     address public yieldProvider;
@@ -87,7 +90,10 @@ contract MockRWAYieldStrategy is BaseStrategy {
      * @return 本金 + 待收获收益
      */
     function totalAssets() public view override returns (uint256) {
-        return principal + _calculatePendingYield() + pendingYield;
+        // Only count assets actually backed by USDC in the contract
+        // principal + injectedYield are backed; pendingYield from time accrual is not
+        // until harvested from yieldProvider
+        return want.balanceOf(address(this));
     }
 
     /**
@@ -102,7 +108,7 @@ contract MockRWAYieldStrategy is BaseStrategy {
      * @notice 获取待收获的收益
      */
     function getPendingYield() external view returns (uint256) {
-        return _calculatePendingYield() + pendingYield;
+        return _calculatePendingYield() + pendingYield + injectedYield;
     }
 
     /**
@@ -149,37 +155,36 @@ contract MockRWAYieldStrategy is BaseStrategy {
      * @return profit 收获的收益金额
      */
     function _harvest() internal override returns (uint256 profit) {
-        // 计算并结算收益
+        // 计算并结算时间累积收益
         _accrueYield();
         
-        profit = pendingYield;
+        profit = 0;
+
+        // 1. 处理已注入的收益 (资金已在合约中，直接复投)
+        if (injectedYield > 0) {
+            profit += injectedYield;
+            principal += injectedYield;
+            injectedYield = 0;
+        }
+
+        // 2. 处理时间累积的收益 (需从 yieldProvider 拉取)
+        if (pendingYield > 0) {
+            uint256 providerBalance = want.balanceOf(yieldProvider);
+            if (providerBalance >= pendingYield) {
+                want.safeTransferFrom(yieldProvider, address(this), pendingYield);
+                profit += pendingYield;
+                principal += pendingYield;
+                pendingYield = 0;
+            } else if (providerBalance > 0) {
+                want.safeTransferFrom(yieldProvider, address(this), providerBalance);
+                profit += providerBalance;
+                principal += providerBalance;
+                pendingYield -= providerBalance;
+            }
+        }
         
         if (profit > 0) {
-            // 在真实场景中，这里会从 RWA 协议领取收益
-            // 模拟: 从 yieldProvider 拉取收益
-            // 这需要 yieldProvider 预先存入足够的代币
-            
-            uint256 providerBalance = want.balanceOf(yieldProvider);
-            if (providerBalance >= profit) {
-                // 从提供者转入收益
-                want.safeTransferFrom(yieldProvider, address(this), profit);
-                
-                // 将收益复投 (增加本金)
-                principal += profit;
-                pendingYield = 0;
-                
-                emit YieldDistributed(profit, vault);
-            } else {
-                // 收益提供者余额不足，减少收益金额
-                if (providerBalance > 0) {
-                    want.safeTransferFrom(yieldProvider, address(this), providerBalance);
-                    principal += providerBalance;
-                    pendingYield -= providerBalance;
-                    profit = providerBalance;
-                } else {
-                    profit = 0;
-                }
-            }
+            emit YieldDistributed(profit, vault);
         }
         
         return profit;
@@ -191,28 +196,26 @@ contract MockRWAYieldStrategy is BaseStrategy {
      * @return 实际提取的金额
      */
     function _withdraw(uint256 _amount) internal override returns (uint256) {
-        // 在真实场景中，这里会:
-        // 1. 从 RWA 协议赎回代币
-        // 2. 可能有赎回等待期
-        // 3. 可能收取赎回费用
-        
-        // 先结算收益
         _accrueYield();
         
-        uint256 available = principal + pendingYield;
+        uint256 available = principal + pendingYield + injectedYield;
         uint256 toWithdraw = _amount > available ? available : _amount;
         
-        // 优先使用待收获收益
-        if (toWithdraw <= pendingYield) {
-            pendingYield -= toWithdraw;
-        } else {
-            uint256 fromPrincipal = toWithdraw - pendingYield;
-            pendingYield = 0;
-            principal -= fromPrincipal;
+        // 优先使用已注入收益，再用待收获收益，最后用本金
+        uint256 remaining = toWithdraw;
+        if (remaining > 0 && injectedYield > 0) {
+            uint256 fromInjected = remaining > injectedYield ? injectedYield : remaining;
+            injectedYield -= fromInjected;
+            remaining -= fromInjected;
         }
-        
-        // 资金已在合约中 (模拟场景)
-        // 真实场景需要从协议中取出
+        if (remaining > 0 && pendingYield > 0) {
+            uint256 fromPending = remaining > pendingYield ? pendingYield : remaining;
+            pendingYield -= fromPending;
+            remaining -= fromPending;
+        }
+        if (remaining > 0) {
+            principal -= remaining;
+        }
         
         return toWithdraw;
     }
@@ -222,13 +225,10 @@ contract MockRWAYieldStrategy is BaseStrategy {
      * @return 提取的总金额
      */
     function _emergencyWithdraw() internal override returns (uint256) {
-        // 在真实场景中，可能需要:
-        // 1. 强制赎回 RWA 代币
-        // 2. 接受可能的滑点或损失
-        
-        uint256 total = principal + pendingYield;
+        uint256 total = principal + pendingYield + injectedYield;
         principal = 0;
         pendingYield = 0;
+        injectedYield = 0;
         lastAccrualTime = block.timestamp;
         
         return total;
@@ -268,7 +268,7 @@ contract MockRWAYieldStrategy is BaseStrategy {
     function injectYield(uint256 _amount) external {
         require(_amount > 0, "Zero amount");
         want.safeTransferFrom(msg.sender, address(this), _amount);
-        pendingYield += _amount;
+        injectedYield += _amount;
         
         emit YieldAccrued(_amount, block.timestamp);
     }

@@ -229,6 +229,27 @@ export const PharosVaultABI = [
     stateMutability: 'view',
     type: 'function',
   },
+  {
+    inputs: [],
+    name: 'claimFees',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '_fee', type: 'uint256' }],
+    name: 'setManagementFee',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
+  {
+    inputs: [{ name: '_fee', type: 'uint256' }],
+    name: 'setPerformanceFee',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
   
   // 策略管理
   {
@@ -318,6 +339,16 @@ export const PharosVaultABI = [
   },
 
   // 管理员函数
+  {
+    inputs: [
+      { name: 'strategy', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    name: 'allocateToStrategy',
+    outputs: [],
+    stateMutability: 'nonpayable',
+    type: 'function',
+  },
   {
     inputs: [],
     name: 'harvestAll',
@@ -483,6 +514,14 @@ export const StrategyABI = [
     name: 'totalProfit',
     outputs: [{ name: '', type: 'uint256' }],
     stateMutability: 'view',
+    type: 'function',
+  },
+  // Inject yield (for RWA strategies)
+  {
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    name: 'injectYield',
+    outputs: [],
+    stateMutability: 'nonpayable',
     type: 'function',
   },
 ] as const;

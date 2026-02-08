@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="d7b550d9-e506-48e7-89b4-3d0c38a06856" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+    <list default="true" id="d7b550d9-e506-48e7-89b4-3d0c38a06856" name="Changes" comment="add oracle contract">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SPEC.md" beforeDir="false" afterPath="$PROJECT_DIR$/SPEC.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/app/portfolio/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/app/portfolio/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/vault/StrategyListLive.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/vault/StrategyListLive.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/vault/VaultInfoLive.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/vault/VaultInfoLive.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useVault.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useVault.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useVaultActions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useVaultActions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/contracts/abis.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/contracts/abis.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/lib/contracts/addresses.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/lib/contracts/addresses.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pharos-vault/.env.example" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/pharos-vault/contracts/strategies/MockRWAYieldStrategy.sol" beforeDir="false" afterPath="$PROJECT_DIR$/pharos-vault/contracts/strategies/MockRWAYieldStrategy.sol" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pharos-vault/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/pharos-vault/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pharos-vault/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/pharos-vault/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pharos-vault/scripts/oracle-node.ts" beforeDir="false" afterPath="$PROJECT_DIR$/pharos-vault/scripts/oracle-node.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -31,6 +44,7 @@
     "javascript.preferred.runtime.type.id": "node",
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "preferences.pluginManager",
+    "ts.external.directory.path": "/Users/yuqingk/dev/pharos-vault-initial/frontend/node_modules/typescript/lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
@@ -52,9 +66,40 @@
       <workItem from="1770102468051" duration="972000" />
       <workItem from="1770103482347" duration="543000" />
     </task>
+    <task id="LOCAL-00001" summary="fix pharos testnet">
+      <option name="closed" value="true" />
+      <created>1770482384506</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1770482384507</updated>
+    </task>
+    <task id="LOCAL-00002" summary="fix pharos deploy error">
+      <option name="closed" value="true" />
+      <created>1770483898333</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1770483898333</updated>
+    </task>
+    <task id="LOCAL-00003" summary="add oracle contract">
+      <option name="closed" value="true" />
+      <created>1770533407338</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1770533407338</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="fix pharos testnet" />
+    <MESSAGE value="fix pharos deploy error" />
+    <MESSAGE value="add oracle contract" />
+    <option name="LAST_COMMIT_MESSAGE" value="add oracle contract" />
   </component>
 </project>

@@ -11,8 +11,9 @@ import { VaultInfoLive } from '@/components/vault/VaultInfoLive';
 import { StrategyListLive } from '@/components/vault/StrategyListLive';
 import { UserPositionLive } from '@/components/vault/UserPositionLive';
 import { VaultActions } from '@/components/vault/VaultActions';
-import { useChainId } from 'wagmi';
+import { useChainId, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { getContracts } from '@/lib/contracts';
+import { PharosVaultABI } from '@/lib/contracts/abis';
 
 export default function LiveVaultPage() {
   const [mounted, setMounted] = useState(false);
@@ -187,20 +188,117 @@ export default function LiveVaultPage() {
         </div>
       )}
 
-      {/* About Section */}
-      <div className="p-6 bg-white border border-gray-200 rounded-xl">
-        <h3 className="font-semibold text-gray-900 mb-2">About Pharos Vault</h3>
-        <p className="text-gray-600 mb-4">
-          Pharos Vault is an ERC4626-compliant yield aggregator that captures diversified RWA yields. 
-          The vault supports multiple strategies including US Treasury bonds simulation and lending protocols, 
-          providing users with transparent, composable yield generation.
-        </p>
-        <div className="flex gap-4 text-sm">
-          <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full">ERC4626 Standard</span>
-          <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">Multi-Strategy</span>
-          <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full">RWA Yields</span>
-          <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full">Auto-Compound</span>
-        </div>
+      {/* About & Settings Tabs */}
+      <AboutAndSettings vaultAddress={contracts.PharosVault as `0x${string}`} />
+    </div>
+  );
+}
+
+function AboutAndSettings({ vaultAddress }: { vaultAddress: `0x${string}` }) {
+  const [tab, setTab] = useState<'about' | 'settings'>('about');
+  const [mgmtFee, setMgmtFee] = useState('2');
+  const [perfFee, setPerfFee] = useState('10');
+  const { writeContract, data: txHash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
+  const [lastAction, setLastAction] = useState('');
+
+  const handleSetMgmtFee = () => {
+    const bps = Math.round(parseFloat(mgmtFee) * 100);
+    writeContract({ address: vaultAddress, abi: PharosVaultABI, functionName: 'setManagementFee', args: [BigInt(bps)] });
+    setLastAction('management');
+  };
+
+  const handleSetPerfFee = () => {
+    const bps = Math.round(parseFloat(perfFee) * 100);
+    writeContract({ address: vaultAddress, abi: PharosVaultABI, functionName: 'setPerformanceFee', args: [BigInt(bps)] });
+    setLastAction('performance');
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="flex border-b border-gray-200">
+        <button
+          onClick={() => setTab('about')}
+          className={`px-6 py-3 text-sm font-medium transition-colors ${tab === 'about' ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          About
+        </button>
+        <button
+          onClick={() => setTab('settings')}
+          className={`px-6 py-3 text-sm font-medium transition-colors ${tab === 'settings' ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          ⚙️ Fee Settings
+        </button>
+      </div>
+
+      <div className="p-6">
+        {tab === 'about' ? (
+          <>
+            <p className="text-gray-600 mb-4">
+              Pharos Vault is an ERC4626-compliant yield aggregator that captures diversified RWA yields.
+              The vault supports multiple strategies including US Treasury bonds simulation and lending protocols,
+              providing users with transparent, composable yield generation.
+            </p>
+            <div className="flex gap-4 text-sm">
+              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full">ERC4626 Standard</span>
+              <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">Multi-Strategy</span>
+              <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full">RWA Yields</span>
+              <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full">Auto-Compound</span>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-xs text-gray-500">Only vault owner can update fees. Values in percentage (e.g. 2 = 2%).</p>
+
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="text-sm text-gray-600 mb-1 block">Management Fee (%)</label>
+                <input
+                  type="number"
+                  value={mgmtFee}
+                  onChange={(e) => setMgmtFee(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  min="0" max="100" step="0.01"
+                />
+              </div>
+              <button
+                onClick={handleSetMgmtFee}
+                disabled={isPending || isConfirming}
+                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50"
+              >
+                {isPending && lastAction === 'management' ? 'Signing...' : isConfirming && lastAction === 'management' ? 'Confirming...' : 'Update'}
+              </button>
+            </div>
+
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <label className="text-sm text-gray-600 mb-1 block">Performance Fee (%)</label>
+                <input
+                  type="number"
+                  value={perfFee}
+                  onChange={(e) => setPerfFee(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+                  min="0" max="50" step="0.01"
+                />
+              </div>
+              <button
+                onClick={handleSetPerfFee}
+                disabled={isPending || isConfirming}
+                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50"
+              >
+                {isPending && lastAction === 'performance' ? 'Signing...' : isConfirming && lastAction === 'performance' ? 'Confirming...' : 'Update'}
+              </button>
+            </div>
+
+            {isSuccess && <p className="text-xs text-green-600">✓ Fee updated successfully</p>}
+            {error && <p className="text-xs text-red-600">Error: {error.message.slice(0, 100)}</p>}
+
+            <div className="pt-3 border-t border-gray-100 text-xs text-gray-400">
+              <p>Management Fee: max 100% (10000 bps) · annualized, accrued per second</p>
+              <p>Performance Fee: max 50% (5000 bps) · charged on harvest gains</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

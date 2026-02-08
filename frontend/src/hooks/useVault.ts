@@ -219,13 +219,13 @@ export function useStrategyInfo(strategyAddress: `0x${string}`, vaultAddress?: `
     estimatedAPY: Number(strategyData[3].result),
     lastHarvest: Number(strategyData[4].result),
     totalProfit: strategyData[5].result as bigint,
-    // From vault params
-    activation: vaultStrategyParams ? Number(vaultStrategyParams[0]) : 0,
-    debtRatio: vaultStrategyParams ? Number(vaultStrategyParams[1]) : 0,
-    totalDebt: vaultStrategyParams ? vaultStrategyParams[2] : 0n,
-    totalGain: vaultStrategyParams ? vaultStrategyParams[3] : 0n,
-    totalLoss: vaultStrategyParams ? vaultStrategyParams[4] : 0n,
-    lastReport: vaultStrategyParams ? Number(vaultStrategyParams[5]) : 0,
+    // From vault params - cast to any for flexible access
+    activation: vaultStrategyParams ? Number((vaultStrategyParams as any).activation ?? 0) : 0,
+    debtRatio: vaultStrategyParams ? Number((vaultStrategyParams as any).debtRatio ?? 0) : 0,
+    totalDebt: vaultStrategyParams ? ((vaultStrategyParams as any).totalDebt ?? 0n) as bigint : 0n,
+    totalGain: vaultStrategyParams ? ((vaultStrategyParams as any).totalGain ?? 0n) as bigint : 0n,
+    totalLoss: vaultStrategyParams ? ((vaultStrategyParams as any).totalLoss ?? 0n) as bigint : 0n,
+    lastReport: vaultStrategyParams ? Number((vaultStrategyParams as any).lastReport ?? 0) : 0,
   } : null;
 
   return {
@@ -266,7 +266,6 @@ export function useSharePrice(vaultAddress?: `0x${string}`) {
   
   const { data, isLoading } = useReadContracts({
     contracts: [
-      { address, abi: PharosVaultABI, functionName: 'convertToAssets', args: [BigInt(1e18)] },
       { address, abi: PharosVaultABI, functionName: 'decimals' },
     ],
     query: {
@@ -275,12 +274,24 @@ export function useSharePrice(vaultAddress?: `0x${string}`) {
     },
   });
 
-  const pricePerShare = data?.[0]?.status === 'success' ? data[0].result : 0n;
-  const decimals = data?.[1]?.status === 'success' ? data[1].result : 18;
+  const decimals = data?.[0]?.status === 'success' ? Number(data[0].result) : 6;
+  const oneShare = BigInt(10 ** decimals);
+
+  const { data: ppsData, isLoading: ppsLoading } = useReadContracts({
+    contracts: [
+      { address, abi: PharosVaultABI, functionName: 'convertToAssets', args: [oneShare] },
+    ],
+    query: {
+      enabled: isValidAddress && !!data,
+      refetchInterval: 30000,
+    },
+  });
+
+  const pricePerShare = ppsData?.[0]?.status === 'success' ? ppsData[0].result : oneShare;
 
   return {
     pricePerShare: pricePerShare as bigint,
-    pricePerShareFormatted: formatUnits(pricePerShare as bigint, decimals as number),
-    isLoading,
+    pricePerShareFormatted: formatUnits(pricePerShare as bigint, decimals),
+    isLoading: isLoading || ppsLoading,
   };
 }

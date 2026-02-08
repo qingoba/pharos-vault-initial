@@ -2,29 +2,26 @@ import { ethers } from "hardhat";
 import * as readline from "readline";
 
 /**
- * RWA Oracle Node - 模拟预言机节点
+ * RWA Oracle Node - 预言机节点
  * 
  * 功能:
- * 1. 定时更新 NAV (模拟每日增长)
- * 2. 定时更新利率 (模拟市场波动)
- * 3. 定时分发收益 (模拟月度利息)
+ * 1. 更新 NAV 数据
+ * 2. 更新利率数据  
+ * 3. 向策略注入收益 (模拟链下收益)
  * 
- * 使用: npx hardhat run scripts/oracle-node.ts --network localhost
+ * 使用: 
+ *   npx hardhat run scripts/oracle-node.ts --network localhost
+ *   npx hardhat run scripts/oracle-node.ts --network pharosTestnet
  */
 
 // 配置
 const CONFIG = {
-  oracleAddress: process.env.ORACLE_ADDRESS || "",
+  // 合约地址 (从环境变量或默认值)
+  strategyAddress: process.env.STRATEGY_ADDRESS || "",
   usdcAddress: process.env.USDC_ADDRESS || "",
   
   // Mock 数据参数
-  initialNAV: 1_000_000_000_000_000_000n,  // 1e18 = $1.00
-  navDailyGrowth: 137n,  // 每日增长 0.0137% ≈ 5% APY
-  
-  initialRate: 500,  // 5% APY
-  rateVariance: 50,  // ±0.5% 波动
-  
-  yieldAmount: 1000_000_000n,  // 每次分发 1000 USDC (6 decimals)
+  baseYieldPerDay: 100,  // 每天基础收益 $100 (用于演示)
 };
 
 // 状态
@@ -38,19 +35,21 @@ async function main() {
   console.log("Operator:", signer.address);
   
   // 如果没有配置地址，进入交互模式
-  if (!CONFIG.oracleAddress) {
-    console.log("\n⚠️  No ORACLE_ADDRESS configured. Running in demo mode.\n");
+  if (!CONFIG.strategyAddress) {
+    console.log("\n⚠️  No STRATEGY_ADDRESS configured. Running in demo mode.\n");
+    console.log("To inject yield to a real strategy, run with:");
+    console.log("STRATEGY_ADDRESS=0x... USDC_ADDRESS=0x... npx hardhat run scripts/oracle-node.ts --network pharosTestnet\n");
     await runDemoMode();
     return;
   }
   
-  const oracle = await ethers.getContractAt("RWAOracle", CONFIG.oracleAddress, signer);
+  const strategy = await ethers.getContractAt("OracleRWAStrategy", CONFIG.strategyAddress, signer);
   const usdc = await ethers.getContractAt("MockUSDC", CONFIG.usdcAddress, signer);
   
-  console.log("Oracle:", CONFIG.oracleAddress);
+  console.log("Strategy:", CONFIG.strategyAddress);
   console.log("USDC:", CONFIG.usdcAddress);
   
-  await runInteractiveMode(oracle, usdc);
+  await runInteractiveMode(strategy, usdc, signer);
 }
 
 /**
@@ -107,7 +106,7 @@ async function runDemoMode() {
 /**
  * 交互模式 - 实际更新链上合约
  */
-async function runInteractiveMode(oracle: any, usdc: any) {
+async function runInteractiveMode(strategy: any, usdc: any, signer: any) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -115,34 +114,29 @@ async function runInteractiveMode(oracle: any, usdc: any) {
   
   const prompt = () => {
     console.log("\nCommands:");
-    console.log("  1. Update NAV");
-    console.log("  2. Update interest rate");
-    console.log("  3. Distribute yield");
-    console.log("  4. Update all (NAV + rate)");
-    console.log("  5. Show oracle state");
-    console.log("  6. Run auto-update loop");
+    console.log("  1. Show strategy state");
+    console.log("  2. Inject yield (simulate off-chain income)");
+    console.log("  3. Inject custom amount");
+    console.log("  4. Run auto-inject loop (5 times)");
     console.log("  q. Quit\n");
     
     rl.question("Enter command: ", async (answer) => {
       try {
         switch (answer.trim()) {
           case "1":
-            await updateNAV(oracle);
+            await showStrategyState(strategy);
             break;
           case "2":
-            await updateRate(oracle);
+            await injectYield(strategy, usdc, signer, CONFIG.baseYieldPerDay);
             break;
           case "3":
-            await distributeYield(oracle, usdc);
-            break;
+            rl.question("Enter amount (USDC): ", async (amt) => {
+              await injectYield(strategy, usdc, signer, parseFloat(amt));
+              prompt();
+            });
+            return;
           case "4":
-            await updateAll(oracle);
-            break;
-          case "5":
-            await showOracleState(oracle);
-            break;
-          case "6":
-            await runAutoUpdateLoop(oracle);
+            await runAutoInjectLoop(strategy, usdc, signer);
             break;
           case "q":
             console.log("Goodbye!");
@@ -159,6 +153,62 @@ async function runInteractiveMode(oracle: any, usdc: any) {
   };
   
   prompt();
+}
+
+async function showStrategyState(strategy: any) {
+  const principal = await strategy.principal();
+  const pendingYield = await strategy.pendingYield();
+  const totalAssets = await strategy.totalAssets();
+  const targetAPY = await strategy.targetAPY();
+  
+  console.log("\n=== Strategy State ===");
+  console.log(`  Principal: $${ethers.formatUnits(principal, 6)}`);
+  console.log(`  Pending Yield: $${ethers.formatUnits(pendingYield, 6)}`);
+  console.log(`  Total Assets: $${ethers.formatUnits(totalAssets, 6)}`);
+  console.log(`  Target APY: ${Number(targetAPY) / 100}%`);
+}
+
+async function injectYield(strategy: any, usdc: any, signer: any, amount: number) {
+  const amountWei = ethers.parseUnits(amount.toString(), 6);
+  
+  console.log(`\nInjecting $${amount} yield...`);
+  
+  // 1. Mint USDC to signer (if needed)
+  const balance = await usdc.balanceOf(signer.address);
+  if (balance < amountWei) {
+    console.log("  Minting USDC...");
+    await (await usdc.mint(signer.address, amountWei)).wait();
+  }
+  
+  // 2. Approve strategy
+  console.log("  Approving strategy...");
+  await (await usdc.approve(await strategy.getAddress(), amountWei)).wait();
+  
+  // 3. Deposit yield to strategy
+  console.log("  Depositing yield...");
+  const tx = await strategy.depositYield(amountWei);
+  await tx.wait();
+  
+  console.log(`✓ Yield injected: $${amount}`);
+  console.log(`  Tx: ${tx.hash}`);
+  
+  await showStrategyState(strategy);
+}
+
+async function runAutoInjectLoop(strategy: any, usdc: any, signer: any) {
+  console.log("\n=== Running Auto-Inject Loop (5 times, 3s interval) ===\n");
+  
+  for (let i = 0; i < 5; i++) {
+    console.log(`\n--- Injection ${i + 1}/5 ---`);
+    await injectYield(strategy, usdc, signer, CONFIG.baseYieldPerDay);
+    
+    if (i < 4) {
+      console.log("Waiting 3 seconds...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+    }
+  }
+  
+  console.log("\n=== Auto-Inject Complete ===");
 }
 
 // ============== 模拟函数 ==============

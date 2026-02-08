@@ -5,17 +5,48 @@
  * Displays real-time vault information from the blockchain
  */
 
-import { useChainId } from 'wagmi';
+import { useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { useVaultInfo } from '@/hooks';
 import { getContracts } from '@/lib/contracts';
+import { PharosVaultABI } from '@/lib/contracts/abis';
+import { useVaultSnapshots } from './NavChart';
+import { useState } from 'react';
 
 export function VaultInfoLive() {
   const chainId = useChainId();
   const contracts = getContracts(chainId);
+  const vaultAddress = contracts.PharosVault as `0x${string}`;
   
-  const { vaultData, isLoading, tvl, apr, managementFeePercent, performanceFeePercent } = useVaultInfo(contracts.PharosVault);
+  const { vaultData, isLoading, tvl, apr, managementFeePercent, performanceFeePercent } = useVaultInfo(vaultAddress);
+  const { maxDrawdownPercent } = useVaultSnapshots();
 
-  const isValidContract = contracts.PharosVault !== '0x0000000000000000000000000000000000000000';
+  // Fee data
+  const { data: feeData, refetch: refetchFees } = useReadContracts({
+    contracts: [
+      { address: vaultAddress, abi: PharosVaultABI, functionName: 'accumulatedManagementFee' },
+      { address: vaultAddress, abi: PharosVaultABI, functionName: 'accumulatedPerformanceFee' },
+      { address: vaultAddress, abi: PharosVaultABI, functionName: 'feeRecipient' },
+    ],
+    query: { refetchInterval: 15000 },
+  });
+
+  const mgmtFee = feeData?.[0]?.status === 'success' ? Number(feeData[0].result) / 1e6 : 0;
+  const perfFee = feeData?.[1]?.status === 'success' ? Number(feeData[1].result) / 1e6 : 0;
+  const feeRecipient = feeData?.[2]?.status === 'success' ? (feeData[2].result as string) : '';
+  const totalFee = mgmtFee + perfFee;
+
+  // Claim fees
+  const { writeContract, data: claimHash, isPending: isClaiming } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash: claimHash });
+
+  const handleClaim = () => {
+    writeContract({ address: vaultAddress, abi: PharosVaultABI, functionName: 'claimFees' });
+  };
+
+  // Refetch after confirmed
+  if (isConfirmed) refetchFees();
+
+  const isValidContract = vaultAddress !== '0x0000000000000000000000000000000000000000';
 
   if (!isValidContract) {
     return (
@@ -133,7 +164,7 @@ export function VaultInfoLive() {
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="p-3 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-500">Total Value Locked</p>
           <p className="text-xl font-bold">{tvlDisplay}</p>
@@ -143,6 +174,13 @@ export function VaultInfoLive() {
           <p className="text-sm text-gray-500">Estimated APY</p>
           <p className="text-xl font-bold text-[var(--primary)]">{displayApr}%</p>
           <p className="text-xs text-gray-400">{isTargetApy ? 'Target (no history yet)' : 'Based on performance'}</p>
+        </div>
+        <div className="p-3 bg-gray-50 rounded-lg">
+          <p className="text-sm text-gray-500">Max Drawdown</p>
+          <p className="text-xl font-bold text-red-600">
+            {maxDrawdownPercent > 0 ? `-${maxDrawdownPercent.toFixed(2)}%` : '0%'}
+          </p>
+          <p className="text-xs text-gray-400">From peak TVL</p>
         </div>
         <div className="p-3 bg-gray-50 rounded-lg">
           <p className="text-sm text-gray-500">Management Fee</p>
@@ -175,6 +213,38 @@ export function VaultInfoLive() {
           </span>
         </div>
       </div>
+
+      {/* Accumulated Fees */}
+      {totalFee > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm text-gray-500">Accumulated Fees</span>
+            <button
+              onClick={handleClaim}
+              disabled={isClaiming || isConfirming}
+              className="px-3 py-1 text-xs bg-orange-100 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-200 disabled:opacity-50"
+            >
+              {isClaiming || isConfirming ? 'Claiming...' : `Claim $${totalFee.toFixed(2)}`}
+            </button>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-500">Management Fee:</span>
+            <span className="font-medium text-orange-600">${mgmtFee.toFixed(4)}</span>
+          </div>
+          <div className="flex justify-between text-sm mt-1">
+            <span className="text-gray-500">Performance Fee:</span>
+            <span className="font-medium text-orange-600">${perfFee.toFixed(4)}</span>
+          </div>
+          {feeRecipient && (
+            <p className="text-xs text-gray-400 mt-1">
+              Recipient: {feeRecipient.slice(0, 8)}...{feeRecipient.slice(-6)}
+            </p>
+          )}
+          {isConfirmed && (
+            <p className="text-xs text-green-600 mt-1">✓ Fees claimed — shares minted to recipient</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
