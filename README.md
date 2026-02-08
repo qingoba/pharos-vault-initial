@@ -315,5 +315,4 @@ npm run dev
 
 <div align="center">
 **Built for 2026 GWDC Hackathon 🏆**
-
 </div>
