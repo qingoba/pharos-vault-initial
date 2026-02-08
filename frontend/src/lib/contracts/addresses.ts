@@ -7,20 +7,20 @@
 // TODO: Update these after deploying to Pharos Testnet
 export const PHAROS_TESTNET_CONTRACTS = {
   // Core Token
-  USDC: '0xc1D439B0d30F753710f8577B91411A7F5536dd05' as `0x${string}`,
+  USDC: '0x09E7Fb8dd38886D9376f67858a054BAe139e8907' as `0x${string}`,
   
   // Vault
-  PharosVault: '0x8ab1B049b7588B21Ef17fd1aA9fB42b18408FA1e' as `0x${string}`,
+  PharosVault: '0x4c41f368647ed1F430D82e6ba8E20569561A8f05' as `0x${string}`,
   
   // Strategies
-  RWAYieldStrategy: '0x05F244d0680A552B2e5d3ea924873E9987307eB6' as `0x${string}`,
-  SimpleLendingStrategy: '0x4b4eDeB9Cf8BAA870459F7f4464F3FD09668d28c' as `0x${string}`,
-  RWAAdapterStrategy: '0x36CB87CEe739F5176e7535Fa883F6F6Bbd7f871d' as `0x${string}`,
+  RWAYieldStrategy: '0x453D6D8A38b701E5C3bBfa4260F6566722D8a974' as `0x${string}`,
+  SimpleLendingStrategy: '0x3b56Ea06cac46Be9f92b1Fd6A2867d54257897e0' as `0x${string}`,
+  RWAAdapterStrategy: '0x7e01A58f77620d6214B808F3dA13ed1De7fb50e4' as `0x${string}`,
   
   // Advanced modules
-  PorRegistry: '0xf6aa3466019b3C9417a26167E26eDEf8a5Aa7cDE' as `0x${string}`,
-  TrancheManager: '0x17F13C54082e65d7D25FCc67527a9B92c43cB938' as `0x${string}`,
-  PharosTimelock: '0x3EC84DC1Cd96A6e39eCC62200a030605f7bA120C' as `0x${string}`,
+  PorRegistry: '0x8b7f5EA62EDE83b5f4C6F4a448645C75BE16238d' as `0x${string}`,
+  TrancheManager: '0xCED31f13b11ED383A720532B6b45F5591a602da2' as `0x${string}`,
+  PharosTimelock: '0xFA78Eaa18122f62e5C2504bE90FA6A83eCe7706d' as `0x${string}`,
 } as const;
 
 // Sepolia Testnet Contract Addresses
