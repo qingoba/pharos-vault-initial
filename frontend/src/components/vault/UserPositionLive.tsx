@@ -1,159 +1,75 @@
 'use client';
 
-/**
- * UserPositionLive Component
- * Displays the user's current position in the vault
- */
-
 import { useAccount, useChainId } from 'wagmi';
-import { useUserPosition, useSharePrice } from '@/hooks';
 import { getContracts } from '@/lib/contracts';
+import { useHybridVaultInfo, useAsyncPosition, useHybridActions } from '@/hooks/useHybridVault';
 
 export function UserPositionLive() {
   const { isConnected, address } = useAccount();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
-  
-  const { 
-    position, 
-    sharesFormatted, 
-    valueFormatted, 
-    hasPosition, 
-    isLoading 
-  } = useUserPosition(contracts.PharosVault);
+  const vaultAddr = (contracts as any).HybridVault as `0x${string}`;
+  const isValid = vaultAddr && vaultAddr !== '0x0000000000000000000000000000000000000000';
 
-  const { pricePerShareFormatted } = useSharePrice(contracts.PharosVault);
+  const { info } = useHybridVaultInfo();
+  const { shares, pendingDeposit, claimableShares, pendingRedeem, claimableAssets } = useAsyncPosition();
+  const { claimShares, claimAssets, isPending, isConfirming } = useHybridActions();
 
-  const isValidContract = contracts.PharosVault !== '0x0000000000000000000000000000000000000000';
+  const fmt = (v: bigint) => (Number(v) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 });
 
-  if (!isConnected) {
-    return (
-      <div className="p-6 bg-white border border-gray-200 rounded-xl">
-        <h3 className="text-lg font-semibold mb-4">Your Position</h3>
-        <div className="p-4 bg-gray-50 rounded-lg text-center text-gray-500">
-          Connect wallet to view your position
-        </div>
-      </div>
-    );
-  }
+  if (!isConnected) return <div className="p-6 bg-white border border-gray-200 rounded-xl"><p className="text-center text-gray-500">Connect wallet to view position</p></div>;
+  if (!isValid) return <div className="p-6 bg-white border border-gray-200 rounded-xl"><p className="text-yellow-600">Contracts not deployed</p></div>;
 
-  if (!isValidContract) {
-    return (
-      <div className="p-6 bg-white border border-gray-200 rounded-xl">
-        <h3 className="text-lg font-semibold mb-4">Your Position</h3>
-        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
-          Contracts not deployed yet.
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="p-6 bg-white border border-gray-200 rounded-xl animate-pulse">
-        <h3 className="text-lg font-semibold mb-4">Your Position</h3>
-        <div className="space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-32"></div>
-          <div className="h-8 bg-gray-200 rounded w-48"></div>
-          <div className="h-4 bg-gray-200 rounded w-24"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasPosition) {
-    return (
-      <div className="p-6 bg-white border border-gray-200 rounded-xl">
-        <h3 className="text-lg font-semibold mb-4">Your Position</h3>
-        <div className="text-center py-6">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-          </div>
-          <p className="text-gray-500 mb-2">No position yet</p>
-          <p className="text-sm text-gray-400">Deposit assets to start earning yield</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Calculate profit/loss (simplified - would need deposit history for accurate calculation)
-  const shares = parseFloat(sharesFormatted);
-  const value = parseFloat(valueFormatted);
-  const pricePerShare = parseFloat(pricePerShareFormatted);
-  
-  // Assuming shares were minted at 1:1 ratio initially
-  const estimatedDeposit = shares; // This is simplified
-  const estimatedProfit = value - estimatedDeposit;
-  const profitPercent = estimatedDeposit > 0 ? ((value / estimatedDeposit - 1) * 100) : 0;
+  const sharesNum = Number(shares) / 1e6;
+  const pps = info && info.totalSupply > 0n ? Number(info.totalAssets) / Number(info.totalSupply) : 1;
+  const value = sharesNum * pps;
+  const busy = isPending || isConfirming;
 
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Your Position</h3>
-        <span className="text-xs text-gray-500 font-mono">
-          {address?.slice(0, 6)}...{address?.slice(-4)}
-        </span>
-      </div>
+      <h3 className="text-lg font-semibold mb-4">Your Position</h3>
 
-      {/* Main Value Display */}
       <div className="text-center py-4 mb-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
-        <p className="text-sm text-gray-500 mb-1">Current Value</p>
-        <p className="text-3xl font-bold text-gray-900">
-          ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-        </p>
-        {estimatedProfit !== 0 && (
-          <p className={`text-sm mt-1 ${estimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {estimatedProfit >= 0 ? '+' : ''}${estimatedProfit.toFixed(2)} 
-            ({estimatedProfit >= 0 ? '+' : ''}{profitPercent.toFixed(2)}%)
-          </p>
+        <p className="text-sm text-gray-500">Current Value</p>
+        <p className="text-3xl font-bold">${value.toFixed(2)}</p>
+        <p className="text-sm text-gray-500 mt-1">{sharesNum.toFixed(2)} shares</p>
+        {pendingDeposit > 0n && (
+          <p className="text-xs text-yellow-600 mt-1">+ ${(Number(pendingDeposit) / 1e6).toFixed(2)} pending</p>
         )}
       </div>
 
-      {/* Position Details */}
-      <div className="space-y-3">
-        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-          <div>
-            <p className="text-xs text-gray-500">Vault Shares</p>
-            <p className="font-semibold">{shares.toLocaleString('en-US', { maximumFractionDigits: 4 })} pvUSDC</p>
+      <div className="space-y-2">
+        {pendingDeposit > 0n && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex justify-between">
+            <span className="text-yellow-700">⏳ Pending Deposit</span>
+            <span className="font-semibold">${fmt(pendingDeposit)}</span>
           </div>
-          <div className="text-right">
-            <p className="text-xs text-gray-500">Price per Share</p>
-            <p className="font-semibold">${pricePerShare.toFixed(6)}</p>
+        )}
+        {claimableShares > 0n && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex justify-between items-center">
+            <span className="text-green-700">✅ Claimable Shares: {fmt(claimableShares)}</span>
+            <button onClick={() => address && claimShares(address)} disabled={busy}
+              className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg disabled:opacity-50">Claim</button>
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-500">Max Withdraw</p>
-            <p className="font-semibold text-sm">
-              ${position?.maxWithdraw ? 
-                (Number(position.maxWithdraw) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
-                : '0'}
-            </p>
+        )}
+        {pendingRedeem > 0n && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg flex justify-between">
+            <span className="text-orange-700">⏳ Pending Redeem</span>
+            <span className="font-semibold">{fmt(pendingRedeem)} shares</span>
           </div>
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-500">Max Redeem</p>
-            <p className="font-semibold text-sm">
-              {position?.maxRedeem ? 
-                (Number(position.maxRedeem) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 2 }) 
-                : '0'} shares
-            </p>
+        )}
+        {claimableAssets > 0n && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex justify-between items-center">
+            <span className="text-green-700">✅ Claimable USDC: ${fmt(claimableAssets)}</span>
+            <button onClick={() => address && claimAssets(address)} disabled={busy}
+              className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg disabled:opacity-50">Claim</button>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Quick Stats */}
-      <div className="mt-4 pt-4 border-t border-gray-100">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-500">Earning Yield</span>
-          <span className="flex items-center text-green-600">
-            <span className="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-            Active
-          </span>
-        </div>
-      </div>
+      {shares === 0n && pendingDeposit === 0n && claimableShares === 0n && (
+        <p className="text-center text-gray-400 py-4">No position yet</p>
+      )}
     </div>
   );
 }

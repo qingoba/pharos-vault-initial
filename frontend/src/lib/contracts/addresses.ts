@@ -7,12 +7,17 @@
 // TODO: Update these after deploying to Pharos Testnet
 export const PHAROS_TESTNET_CONTRACTS = {
   // Core Token
-  USDC: '0xE6AeFd834A3D07bB906F42815DC05aceDFDC5893' as `0x${string}`,
+  USDC: '0xD69FFD54DA90BA648ad08129dA07B04D08C82476' as `0x${string}`,
   
-  // Vault
+  // Vault (Legacy ERC4626)
   PharosVault: '0xaD0E91b64304B4B239e4cDB31EFf4D62122811E6' as `0x${string}`,
   
-  // Strategies
+  // Hybrid Vault (ERC4626 + ERC7540)
+  HybridVault: '0x561F4a3f40192DaEa4059D076bA37c3F9431438f' as `0x${string}`,
+  DeFiStrategy: '0x8049B096dB3226f50286a48eb0b7f628DF244809' as `0x${string}`,
+  AsyncRWAStrategy: '0x722aF9a3d6f8930B33DA0e456b69355e2672c958' as `0x${string}`,
+  
+  // Legacy Strategies
   RWAYieldStrategy: '0xebB7BC8F0e13f3925BC6EEEdd6b84E1960910b54' as `0x${string}`,
   SimpleLendingStrategy: '0x3B71e3BCEAFBA9EAe09110B8060D03B45EcA9d60' as `0x${string}`,
   RWAAdapterStrategy: '0xED09Aed69Bd8c089490351C2e937cCcd64e37033' as `0x${string}`,
@@ -27,7 +32,7 @@ export const PHAROS_TESTNET_CONTRACTS = {
 // Update these after deploying to Sepolia with npm run deploy:sepolia
 export const SEPOLIA_CONTRACTS = {
   // Core Token
-  USDC: '0x8E14Ea3659202E0fde2E94DCD8956c8E98B19ec6' as `0x${string}`,
+  USDC: '0xD69FFD54DA90BA648ad08129dA07B04D08C82476' as `0x${string}`,
   
   // Vault
   PharosVault: '0xC636aAA726dBb9298882CddA9BCedfa11CDe453b' as `0x${string}`,
@@ -45,7 +50,7 @@ export const SEPOLIA_CONTRACTS = {
 
 // Pharos Mainnet Contract Addresses (for future use)
 export const PHAROS_MAINNET_CONTRACTS = {
-  USDC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  USDC: '0xD69FFD54DA90BA648ad08129dA07B04D08C82476' as `0x${string}`,
   PharosVault: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   RWAYieldStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   SimpleLendingStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
@@ -57,7 +62,7 @@ export const PHAROS_MAINNET_CONTRACTS = {
 
 // Local Development Contract Addresses
 export const LOCAL_CONTRACTS = {
-  USDC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  USDC: '0xD69FFD54DA90BA648ad08129dA07B04D08C82476' as `0x${string}`,
   PharosVault: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   RWAYieldStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   SimpleLendingStrategy: '0x0000000000000000000000000000000000000000' as `0x${string}`,

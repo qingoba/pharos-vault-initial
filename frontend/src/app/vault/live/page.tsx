@@ -1,304 +1,238 @@
 'use client';
 
-/**
- * Live Vault Page
- * Displays real-time vault data directly from the blockchain
- * This page uses the new live components connected to smart contracts
- */
-
 import { useState, useEffect } from 'react';
 import { VaultInfoLive } from '@/components/vault/VaultInfoLive';
 import { StrategyListLive } from '@/components/vault/StrategyListLive';
 import { UserPositionLive } from '@/components/vault/UserPositionLive';
 import { VaultActions } from '@/components/vault/VaultActions';
-import { useChainId, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import { useChainId, useReadContracts, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { getContracts } from '@/lib/contracts';
-import { PharosVaultABI } from '@/lib/contracts/abis';
+import { HybridVaultABI, AsyncRWAStrategyABI } from '@/lib/contracts/hybrid-abis';
+import { useOperatorActions } from '@/hooks/useHybridVault';
+
+const USDC_ABI = [
+  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
+] as const;
 
 export default function LiveVaultPage() {
   const [mounted, setMounted] = useState(false);
   const chainId = useChainId();
   const contracts = getContracts(chainId);
+  const vaultAddr = (contracts as any).HybridVault as `0x${string}`;
+  const asyncAddr = (contracts as any).AsyncRWAStrategy as `0x${string}`;
+  const defiAddr = (contracts as any).DeFiStrategy as `0x${string}`;
   
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
+
+  const isValid = vaultAddr && vaultAddr !== '0x0000000000000000000000000000000000000000';
+  const networkName = chainId === 688689 ? 'Pharos Testnet' : chainId === 1672 ? 'Pharos Mainnet' : `Chain ${chainId}`;
 
   if (!mounted) {
     return (
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl animate-pulse">
-          <div className="h-4 bg-blue-200 rounded w-48"></div>
-        </div>
-
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl animate-pulse"><div className="h-4 bg-blue-200 rounded w-48" /></div>
         <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 p-6 bg-white border border-gray-200 rounded-xl animate-pulse">
-            <div className="h-6 bg-gray-200 rounded w-40 mb-4"></div>
-            <div className="grid grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i}>
-                  <div className="h-4 bg-gray-200 rounded w-16 mb-2"></div>
-                  <div className="h-6 bg-gray-200 rounded w-24"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="p-6 bg-white border border-gray-200 rounded-xl animate-pulse">
-            <div className="h-5 bg-gray-200 rounded w-24 mb-4"></div>
-            <div className="h-9 bg-gray-200 rounded mb-3"></div>
-            <div className="h-9 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-6">
-          <div className="col-span-2 p-6 bg-white border border-gray-200 rounded-xl animate-pulse">
-            <div className="h-5 bg-gray-200 rounded w-32 mb-4"></div>
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <div key={i} className="p-4 bg-gray-50 rounded-lg">
-                  <div className="h-5 bg-gray-200 rounded w-40 mb-2"></div>
-                  <div className="h-4 bg-gray-200 rounded w-24"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="p-6 bg-white border border-gray-200 rounded-xl animate-pulse">
-            <div className="h-5 bg-gray-200 rounded w-28 mb-4"></div>
-            <div className="h-9 bg-gray-200 rounded mb-3"></div>
-            <div className="h-9 bg-gray-200 rounded"></div>
-          </div>
+          <div className="col-span-2 h-48 bg-gray-100 rounded-xl animate-pulse" />
+          <div className="h-48 bg-gray-100 rounded-xl animate-pulse" />
         </div>
       </div>
     );
   }
-  
-  const isValidContract = contracts.PharosVault !== '0x0000000000000000000000000000000000000000';
-
-  // Get network name
-  const getNetworkName = () => {
-    if (!mounted) return 'Loading...';
-    if (chainId === 688689) return 'Pharos Testnet';
-    if (chainId === 1672) return 'Pharos Mainnet';
-    if (chainId === 11155111) return 'Sepolia Testnet';
-    return `Chain ${chainId}`;
-  };
-
-  // Get explorer URL
-  const getExplorerUrl = () => {
-    if (chainId === 11155111) return `https://sepolia.etherscan.io/address/${contracts.PharosVault}`;
-    return `https://atlantic.pharosscan.xyz/address/${contracts.PharosVault}`;
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
-      {/* Network Info Banner */}
+      {/* Network Banner */}
       <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-blue-700">
-            Connected to {getNetworkName()}
-          </span>
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+          <span className="text-sm text-blue-700">Connected to {networkName}</span>
         </div>
-        {isValidContract && mounted && (
-          <a
-            href={getExplorerUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-[var(--primary)] hover:underline"
-          >
-            View Contract on Explorer →
-          </a>
+        {isValid && (
+          <a href={`https://atlantic.pharosscan.xyz/address/${vaultAddr}`} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-[var(--primary)] hover:underline">View Contract →</a>
         )}
       </div>
 
-      {/* Main Content Grid */}
+      {/* Main Grid */}
       <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2">
-          <VaultInfoLive />
-        </div>
+        <div className="col-span-2"><VaultInfoLive /></div>
         <VaultActions vaultId="live" />
       </div>
 
-      {/* User Position */}
       <div className="grid grid-cols-3 gap-6">
-        <div className="col-span-2">
-          <StrategyListLive />
-        </div>
+        <div className="col-span-2"><StrategyListLive /></div>
         <UserPositionLive />
       </div>
 
-      {/* Contract Info */}
-      {isValidContract && (
+      {/* Operator Panel */}
+      {isValid && <OperatorPanel asyncAddr={asyncAddr} />}
+
+      {/* Contract Addresses */}
+      {isValid && (
         <div className="p-6 bg-gray-50 rounded-xl">
           <h3 className="font-semibold text-gray-900 mb-4">Contract Addresses</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="flex justify-between p-3 bg-white rounded-lg">
-              <span className="text-gray-500">PharosVault:</span>
-              <span className="font-mono text-xs">
-                <a
-                  href={`https://atlantic.pharosscan.xyz/address/${contracts.PharosVault}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--primary)] hover:underline"
-                >
-                  {contracts.PharosVault.slice(0, 10)}...{contracts.PharosVault.slice(-8)}
+            {[
+              ['HybridVault', vaultAddr],
+              ['USDC', contracts.USDC],
+              ['DeFi Strategy', defiAddr],
+              ['RWA Strategy', asyncAddr],
+            ].map(([label, addr]) => (
+              <div key={label} className="flex justify-between p-3 bg-white rounded-lg">
+                <span className="text-gray-500">{label}:</span>
+                <a href={`https://atlantic.pharosscan.xyz/address/${addr}`} target="_blank" rel="noopener noreferrer"
+                  className="font-mono text-xs text-[var(--primary)] hover:underline">
+                  {(addr as string).slice(0, 10)}...{(addr as string).slice(-8)}
                 </a>
-              </span>
-            </div>
-            <div className="flex justify-between p-3 bg-white rounded-lg">
-              <span className="text-gray-500">USDC:</span>
-              <span className="font-mono text-xs">
-                <a
-                  href={`https://atlantic.pharosscan.xyz/address/${contracts.USDC}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--primary)] hover:underline"
-                >
-                  {contracts.USDC.slice(0, 10)}...{contracts.USDC.slice(-8)}
-                </a>
-              </span>
-            </div>
-            <div className="flex justify-between p-3 bg-white rounded-lg">
-              <span className="text-gray-500">RWA Strategy:</span>
-              <span className="font-mono text-xs">
-                <a
-                  href={`https://atlantic.pharosscan.xyz/address/${contracts.RWAYieldStrategy}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--primary)] hover:underline"
-                >
-                  {contracts.RWAYieldStrategy.slice(0, 10)}...{contracts.RWAYieldStrategy.slice(-8)}
-                </a>
-              </span>
-            </div>
-            <div className="flex justify-between p-3 bg-white rounded-lg">
-              <span className="text-gray-500">Lending Strategy:</span>
-              <span className="font-mono text-xs">
-                <a
-                  href={`https://atlantic.pharosscan.xyz/address/${contracts.SimpleLendingStrategy}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[var(--primary)] hover:underline"
-                >
-                  {contracts.SimpleLendingStrategy.slice(0, 10)}...{contracts.SimpleLendingStrategy.slice(-8)}
-                </a>
-              </span>
-            </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* About & Settings Tabs */}
-      <AboutAndSettings vaultAddress={contracts.PharosVault as `0x${string}`} />
+      {/* About */}
+      <div className="p-6 bg-white border border-gray-200 rounded-xl">
+        <h3 className="font-semibold mb-3">About Hybrid Vault</h3>
+        <p className="text-gray-600 text-sm mb-4">
+          Pharos Hybrid Vault combines synchronous DeFi strategies (instant deposit/withdraw) with asynchronous RWA strategies 
+          (request → fulfill → claim flow for real-world assets). Users receive unified ERC20 share tokens.
+        </p>
+        <div className="flex gap-3 text-sm">
+          <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full">⚡ ERC4626</span>
+          <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full">⏳ ERC7540</span>
+          <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">RWA Yields</span>
+        </div>
+      </div>
     </div>
   );
 }
 
-function AboutAndSettings({ vaultAddress }: { vaultAddress: `0x${string}` }) {
-  const [tab, setTab] = useState<'about' | 'settings'>('about');
-  const [mgmtFee, setMgmtFee] = useState('2');
-  const [perfFee, setPerfFee] = useState('10');
-  const { writeContract, data: txHash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash });
-  const [lastAction, setLastAction] = useState('');
+function OperatorPanel({ asyncAddr }: { asyncAddr: `0x${string}` }) {
+  const chainId = useChainId();
+  const contracts = getContracts(chainId);
+  const { withdrawToOperator, fulfillDeposit, fulfillRedeem, reportNAV, returnAssets, isPending } = useOperatorActions(asyncAddr);
+  const { writeContract: approveWrite, data: approveHash, isPending: isApproving } = useWriteContract();
+  const { isSuccess: approveConfirmed } = useWaitForTransactionReceipt({ hash: approveHash });
+  const [navAmount, setNavAmount] = useState('');
+  const [pendingReturn, setPendingReturn] = useState(0);
 
-  const handleSetMgmtFee = () => {
-    const bps = Math.round(parseFloat(mgmtFee) * 100);
-    writeContract({ address: vaultAddress, abi: PharosVaultABI, functionName: 'setManagementFee', args: [BigInt(bps)] });
-    setLastAction('management');
+  const { data: strategyData, refetch } = useReadContracts({
+    contracts: [
+      { address: asyncAddr, abi: AsyncRWAStrategyABI, functionName: 'totalPendingDeposits' },
+      { address: asyncAddr, abi: AsyncRWAStrategyABI, functionName: 'totalPendingRedeems' },
+      { address: asyncAddr, abi: AsyncRWAStrategyABI, functionName: 'offChainAssets' },
+    ],
+    query: { enabled: !!asyncAddr && asyncAddr !== '0x0000000000000000000000000000000000000000', refetchInterval: 10000 },
+  });
+
+  const pendingDep = strategyData?.[0]?.status === 'success' ? Number(strategyData[0].result) : 0;
+  const pendingRed = strategyData?.[1]?.status === 'success' ? Number(strategyData[1].result) : 0;
+  const offChain = strategyData?.[2]?.status === 'success' ? Number(strategyData[2].result) : 0;
+  const fmt = (v: number) => (v / 1e6).toFixed(2);
+
+  const handleWithdraw = async () => {
+    if (pendingDep <= 0) return;
+    await withdrawToOperator(BigInt(pendingDep));
+    refetch();
   };
 
-  const handleSetPerfFee = () => {
-    const bps = Math.round(parseFloat(perfFee) * 100);
-    writeContract({ address: vaultAddress, abi: PharosVaultABI, functionName: 'setPerformanceFee', args: [BigInt(bps)] });
-    setLastAction('performance');
+  const handleFulfillDeposits = async () => {
+    // Batch fulfill — address/shares params ignored by contract
+    await fulfillDeposit('0x0000000000000000000000000000000000000000' as `0x${string}`, 0n);
+    refetch();
   };
+
+  const handleReportNAV = async () => {
+    if (!navAmount) return;
+    await reportNAV(BigInt(Math.floor(parseFloat(navAmount) * 1e6)));
+    setNavAmount('');
+    refetch();
+  };
+
+  const handleFulfillRedeems = async () => {
+    await fulfillRedeem('0x0000000000000000000000000000000000000000' as `0x${string}`, 0n);
+    refetch();
+  };
+
+  const handleReturnAssets = async () => {
+    if (offChain <= 0) return;
+    setPendingReturn(offChain);
+    approveWrite(
+      { address: contracts.USDC, abi: USDC_ABI, functionName: 'approve', args: [asyncAddr, BigInt(offChain)] },
+    );
+  };
+
+  // After approve confirmed, do returnAssets
+  useEffect(() => {
+    if (approveConfirmed && pendingReturn > 0) {
+      returnAssets(BigInt(pendingReturn));
+      setPendingReturn(0);
+      refetch();
+    }
+  }, [approveConfirmed]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="flex border-b border-gray-200">
-        <button
-          onClick={() => setTab('about')}
-          className={`px-6 py-3 text-sm font-medium transition-colors ${tab === 'about' ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          About
-        </button>
-        <button
-          onClick={() => setTab('settings')}
-          className={`px-6 py-3 text-sm font-medium transition-colors ${tab === 'settings' ? 'text-[var(--primary)] border-b-2 border-[var(--primary)]' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          ⚙️ Fee Settings
-        </button>
+    <div className="p-6 bg-orange-50 border border-orange-200 rounded-xl">
+      <h3 className="font-semibold text-orange-800 mb-4">Operator Panel (RWA Strategy)</h3>
+      
+      {/* Status */}
+      <div className="grid grid-cols-3 gap-4 mb-4 text-sm">
+        <div className="p-3 bg-white rounded-lg">
+          <p className="text-gray-500">Pending Deposits</p>
+          <p className="font-semibold">${fmt(pendingDep)}</p>
+        </div>
+        <div className="p-3 bg-white rounded-lg">
+          <p className="text-gray-500">Pending Redeems</p>
+          <p className="font-semibold">{fmt(pendingRed)} shares</p>
+        </div>
+        <div className="p-3 bg-white rounded-lg">
+          <p className="text-gray-500">Off-chain Assets</p>
+          <p className="font-semibold">${fmt(offChain)}</p>
+        </div>
       </div>
 
-      <div className="p-6">
-        {tab === 'about' ? (
-          <>
-            <p className="text-gray-600 mb-4">
-              Pharos Vault is an ERC4626-compliant yield aggregator that captures diversified RWA yields.
-              The vault supports multiple strategies including US Treasury bonds simulation and lending protocols,
-              providing users with transparent, composable yield generation.
-            </p>
-            <div className="flex gap-4 text-sm">
-              <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full">ERC4626 Standard</span>
-              <span className="px-3 py-1 bg-green-50 text-green-700 rounded-full">Multi-Strategy</span>
-              <span className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full">RWA Yields</span>
-              <span className="px-3 py-1 bg-orange-50 text-orange-700 rounded-full">Auto-Compound</span>
-            </div>
-          </>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-xs text-gray-500">Only vault owner can update fees. Values in percentage (e.g. 2 = 2%).</p>
+      {/* Deposit Flow */}
+      <div className="mb-3 p-4 bg-white rounded-lg">
+        <p className="text-sm font-medium text-gray-700 mb-3">Deposit Flow</p>
+        <div className="flex gap-2">
+          <button onClick={handleWithdraw} disabled={isPending || pendingDep <= 0}
+            className="flex-1 py-2 text-sm bg-orange-100 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-200 disabled:opacity-50">
+            1. Withdraw USDC and buy RWA asset
+          </button>
+          <button onClick={handleFulfillDeposits} disabled={isPending || pendingDep <= 0}
+            className="flex-1 py-2 text-sm bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 disabled:opacity-50">
+            2. Confirm Purchase
+          </button>
+        </div>
+        {pendingDep > 0 && <p className="text-xs text-gray-500 mt-2">Will withdraw ${fmt(pendingDep)} USDC, all pending users become claimable</p>}
+      </div>
 
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <label className="text-sm text-gray-600 mb-1 block">Management Fee (%)</label>
-                <input
-                  type="number"
-                  value={mgmtFee}
-                  onChange={(e) => setMgmtFee(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  min="0" max="100" step="0.01"
-                />
-              </div>
-              <button
-                onClick={handleSetMgmtFee}
-                disabled={isPending || isConfirming}
-                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50"
-              >
-                {isPending && lastAction === 'management' ? 'Signing...' : isConfirming && lastAction === 'management' ? 'Confirming...' : 'Update'}
-              </button>
-            </div>
+      {/* Redeem Flow */}
+      <div className="mb-3 p-4 bg-white rounded-lg">
+        <p className="text-sm font-medium text-gray-700 mb-3">Redeem Flow</p>
+        <div className="flex gap-2">
+          <button onClick={handleReturnAssets} disabled={isPending || offChain <= 0}
+            className="flex-1 py-2 text-sm bg-orange-100 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-200 disabled:opacity-50">
+            1. Sell RWA asset and return USDC
+          </button>
+          <button onClick={handleFulfillRedeems} disabled={isPending || pendingRed <= 0}
+            className="flex-1 py-2 text-sm bg-green-100 text-green-700 border border-green-200 rounded-lg hover:bg-green-200 disabled:opacity-50">
+            2. Confirm Redemption
+          </button>
+        </div>
+      </div>
 
-            <div className="flex items-end gap-3">
-              <div className="flex-1">
-                <label className="text-sm text-gray-600 mb-1 block">Performance Fee (%)</label>
-                <input
-                  type="number"
-                  value={perfFee}
-                  onChange={(e) => setPerfFee(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
-                  min="0" max="50" step="0.01"
-                />
-              </div>
-              <button
-                onClick={handleSetPerfFee}
-                disabled={isPending || isConfirming}
-                className="px-4 py-2 text-sm bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] disabled:opacity-50"
-              >
-                {isPending && lastAction === 'performance' ? 'Signing...' : isConfirming && lastAction === 'performance' ? 'Confirming...' : 'Update'}
-              </button>
-            </div>
-
-            {isSuccess && <p className="text-xs text-green-600">✓ Fee updated successfully</p>}
-            {error && <p className="text-xs text-red-600">Error: {error.message.slice(0, 100)}</p>}
-
-            <div className="pt-3 border-t border-gray-100 text-xs text-gray-400">
-              <p>Management Fee: max 100% (10000 bps) · annualized, accrued per second</p>
-              <p>Performance Fee: max 50% (5000 bps) · charged on harvest gains</p>
-            </div>
-          </div>
-        )}
+      {/* Report NAV */}
+      <div className="p-4 bg-white rounded-lg">
+        <p className="text-sm font-medium text-gray-700 mb-3">Report NAV</p>
+        <div className="flex gap-2">
+          <input type="number" value={navAmount} onChange={e => setNavAmount(e.target.value)}
+            placeholder="USD value" className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          <button onClick={handleReportNAV} disabled={isPending || !navAmount}
+            className="px-4 py-2 text-sm bg-blue-100 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-200 disabled:opacity-50">
+            Report
+          </button>
+        </div>
       </div>
     </div>
   );

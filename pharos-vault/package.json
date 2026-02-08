@@ -17,6 +17,9 @@
     "allocate": "npx hardhat run scripts/allocate-funds.ts --network pharosTestnet",
     "simulate:yield": "npx hardhat run scripts/simulate-yield.ts --network sepolia",
     "simulate:yield:pharos": "npx hardhat run scripts/simulate-yield.ts --network pharosTestnet",
+    "deploy:hybrid": "npx hardhat run scripts/deploy-hybrid.ts --network pharosTestnet",
+    "deploy:hybrid:local": "npx hardhat run scripts/deploy-hybrid.ts --network localhost",
+    "simulate:7540": "npx hardhat run scripts/simulate-7540.ts",
     "node": "npx hardhat node",
     "clean": "npx hardhat clean",
     "verify": "npx hardhat verify --network pharosTestnet"

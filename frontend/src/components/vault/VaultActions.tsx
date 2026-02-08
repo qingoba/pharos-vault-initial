@@ -1,288 +1,163 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useChainId } from 'wagmi';
-import { useVaultActions, useMintTestTokens, useUserPosition } from '@/hooks';
+import { useAccount, useChainId, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi';
+import { parseUnits } from 'viem';
 import { getContracts } from '@/lib/contracts';
+import { useHybridVaultInfo, useAsyncPosition, useHybridActions } from '@/hooks/useHybridVault';
+
+const USDC_ABI = [
+  { inputs: [{ name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'approve', outputs: [{ name: '', type: 'bool' }], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ name: 'account', type: 'address' }], name: 'balanceOf', outputs: [{ name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }], name: 'mint', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+] as const;
 
 export function VaultActions({ vaultId }: { vaultId: string }) {
-  const { isConnected, address } = useAccount();
+  const { isConnected, address: userAddress } = useAccount();
   const chainId = useChainId();
   const contracts = getContracts(chainId);
-  
+  const vaultAddr = (contracts as any).HybridVault as `0x${string}`;
+  const isValid = vaultAddr && vaultAddr !== '0x0000000000000000000000000000000000000000';
+
   const [mounted, setMounted] = useState(false);
   const [tab, setTab] = useState<'deposit' | 'withdraw'>('deposit');
   const [amount, setAmount] = useState('');
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [status, setStatus] = useState<{ type: string; text: string } | null>(null);
 
-  // Handle hydration mismatch - only render wallet-dependent UI after mount
+  useEffect(() => { setMounted(true); }, []);
+
+  // USDC balance
+  const { data: usdcBalance, refetch: refetchBalance } = useReadContract({
+    address: contracts.USDC,
+    abi: USDC_ABI,
+    functionName: 'balanceOf',
+    args: userAddress ? [userAddress] : undefined,
+    query: { enabled: !!userAddress && isValid, refetchInterval: 10000 },
+  });
+  const usdcNum = Number(usdcBalance || 0n) / 1e6;
+
+  const { info, refetch: refetchVault } = useHybridVaultInfo();
+  const { shares } = useAsyncPosition();
+  const { deposit, redeem, isPending, isConfirming, isSuccess, error, reset } = useHybridActions();
+  const { writeContract: approveWrite, data: approveHash, isPending: isApproving, reset: resetApprove } = useWriteContract();
+  const { writeContract: mintWrite, isPending: isMinting } = useWriteContract();
+  const { isSuccess: approveConfirmed } = useWaitForTransactionReceipt({ hash: approveHash });
+
+  const syncPct = info ? info.syncRatio / (info.syncRatio + info.asyncRatio) * 100 : 40;
+  const asyncPct = 100 - syncPct;
+
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Contract hooks
-  const {
-    deposit,
-    withdraw,
-    approve,
-    reset: resetVaultActions,
-    isLoading: isVaultLoading,
-    isSuccess: isVaultSuccess,
-    isError: isVaultError,
-    txState,
-    assetBalanceFormatted,
-    hasEnoughAllowance,
-    hasEnoughBalance,
-    decimals,
-    refetchBalance,
-    assetAddress,
-  } = useVaultActions(contracts.PharosVault);
-
-  const { position, sharesFormatted, valueFormatted, refetch: refetchPosition } = useUserPosition(contracts.PharosVault);
-
-  const { mint: mintTokens, isLoading: isMinting } = useMintTestTokens(contracts.USDC);
-
-  // Update status message based on transaction state
-  useEffect(() => {
-    if (txState.status === 'approving') {
-      setStatusMessage({ type: 'info', text: 'Approving token spend...' });
-    } else if (txState.status === 'pending') {
-      setStatusMessage({ type: 'info', text: 'Waiting for transaction...' });
-    } else if (txState.status === 'confirming') {
-      setStatusMessage({ type: 'info', text: 'Confirming transaction...' });
-    } else if (txState.status === 'success') {
-      setStatusMessage({ 
-        type: 'success', 
-        text: tab === 'deposit' ? 'Deposit successful!' : 'Withdrawal successful!' 
-      });
+    if (isSuccess) {
+      setStatus({ type: 'success', text: tab === 'deposit' ? 'Deposit successful!' : 'Withdraw submitted!' });
       setAmount('');
-      refetchPosition();
-      // Clear success message after 3 seconds
-      setTimeout(() => {
-        setStatusMessage(null);
-        resetVaultActions();
-      }, 3000);
-    } else if (txState.status === 'error') {
-      setStatusMessage({ 
-        type: 'error', 
-        text: txState.error?.message || 'Transaction failed' 
-      });
+      refetchVault();
+      refetchBalance();
+      setTimeout(() => { setStatus(null); reset(); }, 3000);
     }
-  }, [txState, tab, refetchPosition, resetVaultActions]);
+    if (error) setStatus({ type: 'error', text: error.message.slice(0, 80) });
+  }, [isSuccess, error]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatusMessage(null);
-    
-    if (!amount || parseFloat(amount) <= 0) {
-      setStatusMessage({ type: 'error', text: 'Please enter a valid amount' });
-      return;
-    }
-
-    try {
-      if (tab === 'deposit') {
-        if (!hasEnoughBalance(amount)) {
-          setStatusMessage({ type: 'error', text: 'Insufficient balance' });
-          return;
+  const handleDeposit = async () => {
+    if (!amount || !userAddress) return;
+    resetApprove();
+    const assets = parseUnits(amount, 6);
+    setStatus({ type: 'info', text: 'Approving USDC...' });
+    approveWrite(
+      { address: contracts.USDC, abi: USDC_ABI, functionName: 'approve', args: [vaultAddr, assets] },
+      { 
+        onSuccess: () => {
+          setStatus({ type: 'info', text: 'Waiting for approval confirmation...' });
+        },
+        onError: (err) => {
+          setStatus({ type: 'error', text: 'Approve failed: ' + err.message.slice(0, 50) });
         }
-        await deposit(amount);
-      } else {
-        await withdraw(amount);
       }
-    } catch (error: unknown) {
-      console.error('Transaction error:', error);
-      setStatusMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Transaction failed' 
-      });
-    }
-  };
-
-  const handleMintTestTokens = async () => {
-    try {
-      setStatusMessage({ type: 'info', text: 'Minting test tokens...' });
-      await mintTokens('10000'); // Mint 10,000 USDC
-      // Wait a bit for the transaction to be indexed, then refresh balance
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      await refetchBalance();
-      setStatusMessage({ type: 'success', text: 'Minted 10,000 test USDC!' });
-      setTimeout(() => setStatusMessage(null), 3000);
-    } catch (error: unknown) {
-      setStatusMessage({ 
-        type: 'error', 
-        text: error instanceof Error ? error.message : 'Failed to mint test tokens' 
-      });
-    }
-  };
-
-  const handleMaxClick = () => {
-    if (tab === 'deposit') {
-      setAmount(assetBalanceFormatted);
-    } else {
-      setAmount(valueFormatted);
-    }
-  };
-
-  // Show loading skeleton during SSR/hydration to prevent mismatch
-  if (!mounted) {
-    return (
-      <div className="p-6 bg-gray-50 rounded-xl text-center text-gray-500">
-        Loading...
-      </div>
     );
-  }
+  };
+  
+  useEffect(() => {
+    if (approveConfirmed && amount && userAddress && status?.text?.includes('approval')) {
+      setStatus({ type: 'info', text: 'Depositing...' });
+      const assets = parseUnits(amount, 6);
+      deposit(assets, userAddress);
+    }
+  }, [approveConfirmed]);
 
-  if (!isConnected) {
-    return (
-      <div className="p-6 bg-gray-50 rounded-xl text-center text-gray-500">
-        Connect wallet to deposit or withdraw
-      </div>
+  const handleWithdraw = async () => {
+    if (!amount || !userAddress) return;
+    const shareAmt = parseUnits(amount, info?.decimals ?? 6);
+    redeem(shareAmt, userAddress, userAddress);
+  };
+
+  const handleMint = () => {
+    if (!userAddress) return;
+    setStatus({ type: 'info', text: 'Minting test USDC...' });
+    mintWrite(
+      { address: contracts.USDC, abi: USDC_ABI, functionName: 'mint', args: [userAddress, parseUnits('10000', 6)] },
+      { onSuccess: () => { setStatus({ type: 'success', text: 'Minted 10,000 USDC!' }); setTimeout(() => setStatus(null), 3000); } }
     );
-  }
+  };
 
-  const isValidContract = contracts.PharosVault !== '0x0000000000000000000000000000000000000000';
+  if (!mounted) return <div className="p-6 bg-gray-50 rounded-xl text-center text-gray-500">Loading...</div>;
+  if (!isConnected) return <div className="p-6 bg-gray-50 rounded-xl text-center text-gray-500">Connect wallet to deposit or withdraw</div>;
+
+  const busy = isPending || isConfirming || isApproving;
+  const userShares = Number(shares) / 1e6;
 
   return (
     <div className="p-6 bg-white border border-gray-200 rounded-xl">
-      {/* Debug Info - Remove in production */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-xs font-mono">
-          <div>Vault: {contracts.PharosVault}</div>
-          <div>Asset from vault: {assetAddress || 'Loading...'}</div>
-          <div>Expected USDC: {contracts.USDC}</div>
-          <div>Balance: {assetBalanceFormatted}</div>
-        </div>
-      )}
-      
-      {/* Contract Status Warning */}
-      {!isValidContract && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-700 text-sm">
-          ⚠️ Contracts not deployed yet. Please deploy to Pharos Testnet first.
-        </div>
-      )}
-
-      {/* Tab Buttons */}
       <div className="flex gap-2 mb-4">
-        <button
-          onClick={() => setTab('deposit')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            tab === 'deposit'
-              ? 'bg-[var(--primary)] text-white'
-              : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          Deposit
-        </button>
-        <button
-          onClick={() => setTab('withdraw')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            tab === 'withdraw'
-              ? 'bg-[var(--primary)] text-white'
-              : 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          Withdraw
-        </button>
-      </div>
-
-      {/* Balance Info */}
-      <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm">
-        {tab === 'deposit' ? (
-          <div className="flex justify-between">
-            <span className="text-gray-500">Available Balance:</span>
-            <span className="font-medium">{parseFloat(assetBalanceFormatted).toLocaleString('en-US')} USDC</span>
-          </div>
-        ) : (
-          <>
-            <div className="flex justify-between mb-1">
-              <span className="text-gray-500">Your Shares:</span>
-              <span className="font-medium">{parseFloat(sharesFormatted).toLocaleString('en-US')} pvUSDC</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">Value:</span>
-              <span className="font-medium">{parseFloat(valueFormatted).toLocaleString('en-US')} USDC</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Form */}
-      <form onSubmit={handleSubmit}>
-        <div className="relative mb-4">
-          <input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder={tab === 'deposit' ? 'Amount to deposit' : 'Amount to withdraw'}
-            className="w-full p-3 pr-16 border border-gray-200 rounded-lg"
-            disabled={isVaultLoading || !isValidContract}
-            step="any"
-            min="0"
-          />
-          <button
-            type="button"
-            onClick={handleMaxClick}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-[var(--primary)] font-medium hover:underline"
-          >
-            MAX
+        {(['deposit', 'withdraw'] as const).map(m => (
+          <button key={m} onClick={() => { setTab(m); setStatus(null); }}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium ${tab === m ? 'bg-[var(--primary)] text-white' : 'bg-gray-100 text-gray-600'}`}>
+            {m === 'deposit' ? 'Deposit' : 'Withdraw'}
           </button>
+        ))}
+      </div>
+
+      {/* Balance display */}
+      <div className="mb-3 p-3 bg-gray-50 rounded-lg text-sm flex justify-between">
+        <span className="text-gray-500">{tab === 'deposit' ? 'USDC Balance:' : 'Your Shares:'}</span>
+        <span className="font-medium">
+          {tab === 'deposit' 
+            ? usdcNum.toLocaleString('en-US', { maximumFractionDigits: 2 })
+            : userShares.toLocaleString('en-US', { maximumFractionDigits: 2 })}
+        </span>
+      </div>
+
+      <div className="relative mb-3">
+        <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
+          placeholder={tab === 'deposit' ? 'USDC amount' : 'Shares to redeem'}
+          className="w-full p-3 pr-16 border border-gray-200 rounded-lg" disabled={busy} />
+        <button type="button" onClick={() => setAmount(tab === 'deposit' ? usdcNum.toString() : userShares.toString())}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--primary)] font-medium">MAX</button>
+      </div>
+
+      {/* Sync/Async split preview */}
+      {amount && parseFloat(amount) > 0 && (
+        <div className={`p-3 rounded-lg mb-3 text-xs ${tab === 'deposit' ? 'bg-blue-50 text-blue-700' : 'bg-orange-50 text-orange-700'}`}>
+          <p>⚡ {syncPct.toFixed(0)}% → {(parseFloat(amount) * syncPct / 100).toFixed(2)} {tab === 'deposit' ? 'USDC → instant shares' : 'shares → instant USDC'}</p>
+          <p>⏳ {asyncPct.toFixed(0)}% → {(parseFloat(amount) * asyncPct / 100).toFixed(2)} {tab === 'deposit' ? 'USDC → pending (claim later)' : 'shares → pending (claim later)'}</p>
         </div>
+      )}
 
-        {/* Status Message */}
-        {statusMessage && (
-          <div className={`mb-4 p-3 rounded-lg text-sm ${
-            statusMessage.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
-            statusMessage.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' :
-            'bg-blue-50 text-blue-700 border border-blue-200'
-          }`}>
-            {statusMessage.text}
-          </div>
-        )}
+      {status && (
+        <div className={`mb-3 p-3 rounded-lg text-sm ${status.type === 'success' ? 'bg-green-50 text-green-700' : status.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}`}>
+          {status.text}
+        </div>
+      )}
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={isVaultLoading || !isValidContract || !amount || parseFloat(amount) <= 0}
-          className="w-full py-3 bg-[var(--primary)] text-white rounded-lg hover:bg-[var(--primary-hover)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isVaultLoading ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Processing...
-            </span>
-          ) : (
-            tab === 'deposit' ? 'Deposit' : 'Withdraw'
-          )}
-        </button>
-      </form>
+      <button onClick={tab === 'deposit' ? handleDeposit : handleWithdraw}
+        disabled={busy || !amount || parseFloat(amount) <= 0 || !isValid}
+        className="w-full py-3 bg-[var(--primary)] text-white rounded-lg disabled:opacity-50">
+        {busy ? 'Processing...' : tab === 'deposit' ? 'Deposit' : 'Withdraw'}
+      </button>
 
-      {/* Mint Test Tokens Button (for testnet) */}
-      {isValidContract && (
-        <button
-          type="button"
-          onClick={handleMintTestTokens}
-          disabled={isMinting}
-          className="w-full mt-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-        >
+      {isValid && (
+        <button onClick={handleMint} disabled={isMinting}
+          className="w-full mt-3 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">
           {isMinting ? 'Minting...' : '🪙 Mint 10,000 Test USDC'}
         </button>
-      )}
-
-      {/* Transaction Hash */}
-      {txState.hash && (
-        <div className="mt-4 text-xs text-gray-500 text-center break-all">
-          TX: <a 
-            href={`https://atlantic.pharosscan.xyz/tx/${txState.hash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--primary)] hover:underline"
-          >
-            {txState.hash.slice(0, 10)}...{txState.hash.slice(-8)}
-          </a>
-        </div>
       )}
     </div>
   );
