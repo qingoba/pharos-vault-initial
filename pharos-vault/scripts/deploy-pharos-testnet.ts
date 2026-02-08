@@ -400,7 +400,7 @@ async function main() {
   } else {
     console.log("\n2. Connect your wallet to Pharos Testnet");
     console.log("   - Network Name: Pharos Testnet");
-    console.log("   - RPC URL: https://testnet.dplabs-internal.com");
+    console.log("   - RPC URL: https://atlantic.dplabs-internal.com");
     console.log("   - Chain ID: 688689");
     console.log("   - Currency Symbol: PTT");
   }

@@ -25,13 +25,13 @@ const config: HardhatUserConfig = {
     },
     // Pharos Testnet
     pharosTestnet: {
-      url: process.env.PHAROS_TESTNET_RPC_URL || "https://testnet.dplabs-internal.com",
+      url: process.env.PHAROS_TESTNET_RPC_URL || "https://atlantic.dplabs-internal.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 688689,
       gas: 8000000,
       // Use EIP-1559 gas settings
       maxFeePerGas: 50000000000, // 50 gwei
-      maxPriorityFeePerGas: 2000000000, // 2 gwei
+      maxPriorityFeePerGas: 50000000000, // 2 gwei
       timeout: 120000, // 2 minute timeout for large deployments
     },
     // Pharos Mainnet (for future use)
@@ -63,8 +63,8 @@ const config: HardhatUserConfig = {
         network: "pharosTestnet",
         chainId: 688689,
         urls: {
-          apiURL: "https://testnet.pharosscan.xyz/api",
-          browserURL: "https://testnet.pharosscan.xyz",
+          apiURL: "https://api.socialscan.io/pharos-atlantic-testnet",
+          browserURL: "https://atlantic.pharosscan.xyz",
         },
       },
     ],

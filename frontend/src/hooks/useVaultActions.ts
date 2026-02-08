@@ -55,6 +55,18 @@ export function useVaultActions(
   const depositTokenAddress =
     selectedDepositToken || (assetAddress as `0x${string}` | undefined);
   
+  // Debug: Log asset address fetch
+  useEffect(() => {
+    console.log('[useVaultActions] Debug Info:', {
+      chainId,
+      vault,
+      userAddress,
+      assetAddress,
+      assetError: assetError?.message,
+      assetLoading,
+    });
+  }, [chainId, vault, userAddress, assetAddress, assetError, assetLoading]);
+  
   // Get decimals
   const { data: assetDecimals } = useReadContract({
     address: assetAddress as `0x${string}`,
@@ -85,6 +97,17 @@ export function useVaultActions(
     },
   });
   
+  // Debug: Log decimals
+  useEffect(() => {
+    if (assetAddress) {
+      console.log('[useVaultActions] Decimals:', {
+        assetAddress,
+        decimals,
+        decimalsError: decimalsError?.message,
+      });
+    }
+  }, [assetAddress, decimals, decimalsError]);
+  
   // Check current allowance
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
     address: depositTokenAddress as `0x${string}`,
@@ -109,6 +132,21 @@ export function useVaultActions(
       refetchInterval: 5000, // Poll every 5 seconds
     },
   });
+  
+  // Debug: Log balance fetch result
+  useEffect(() => {
+    if (assetAddress && userAddress) {
+      console.log('[useVaultActions] Balance Query:', {
+        assetAddress,
+        userAddress,
+        assetBalance: assetBalance?.toString(),
+        balanceError: balanceError?.message,
+        balanceLoading,
+        allowance: allowance?.toString(),
+        allowanceError: allowanceError?.message,
+      });
+    }
+  }, [assetAddress, userAddress, assetBalance, balanceError, balanceLoading, allowance, allowanceError]);
   
   // Write contract hooks
   const { writeContractAsync: writeApprove, data: approveHash } = useWriteContract();

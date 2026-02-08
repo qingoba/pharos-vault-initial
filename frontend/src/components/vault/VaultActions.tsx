@@ -329,7 +329,7 @@ export function VaultActions({ vaultId }: { vaultId: string }) {
       {txState.hash && (
         <div className="mt-4 text-xs text-gray-500 text-center break-all">
           TX: <a 
-            href={`https://testnet.pharosscan.xyz/tx/${txState.hash}`}
+            href={`https://atlantic.pharosscan.xyz/tx/${txState.hash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[var(--primary)] hover:underline"

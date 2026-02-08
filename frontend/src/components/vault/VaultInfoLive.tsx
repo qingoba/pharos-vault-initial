@@ -117,7 +117,7 @@ export function VaultInfoLive() {
               </svg>
             </button>
             <a
-              href={`https://testnet.pharosscan.xyz/address/${contracts.PharosVault}`}
+              href={`https://atlantic.pharosscan.xyz/address/${contracts.PharosVault}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-[var(--primary)] transition-colors"

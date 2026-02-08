@@ -8,10 +8,10 @@ export const pharosTestnet = defineChain({
   name: 'Pharos Testnet',
   nativeCurrency: { name: 'Pharos ETH', symbol: 'PTT', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet.dplabs-internal.com'] },
+    default: { http: ['https://atlantic.dplabs-internal.com'] },
   },
   blockExplorers: {
-    default: { name: 'Pharos Testnet Explorer', url: 'https://testnet.pharosscan.xyz' },
+    default: { name: 'Pharos Testnet Explorer', url: 'https://atlantic.pharosscan.xyz/' },
   },
   testnet: true,
 });
