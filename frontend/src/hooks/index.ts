@@ -8,3 +8,4 @@ export * from './usePoR';
 export * from './useTranches';
 export * from './useKeeperStatus';
 export * from './useMounted';
+export * from './useVaultSimulation';

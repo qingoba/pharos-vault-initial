@@ -8,9 +8,12 @@
 export const PHAROS_TESTNET_CONTRACTS = {
   // Core Token
   USDC: '0xc1D439B0d30F753710f8577B91411A7F5536dd05' as `0x${string}`,
+  WBTC: '0x0000000000000000000000000000000000000000' as `0x${string}`,
+  WBNB: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   
   // Vault
   PharosVault: '0x8ab1B049b7588B21Ef17fd1aA9fB42b18408FA1e' as `0x${string}`,
+  SwapRouter: '0x0000000000000000000000000000000000000000' as `0x${string}`,
   
   // Strategies
   RWAYieldStrategy: '0x05F244d0680A552B2e5d3ea924873E9987307eB6' as `0x${string}`,
@@ -27,23 +30,23 @@ export const PHAROS_TESTNET_CONTRACTS = {
 // Update these after deploying to Sepolia with npm run deploy:sepolia
 export const SEPOLIA_CONTRACTS = {
   // Core Token
-  USDC: '0xca423B0fC4117bFc2125A4bcd49f192fa989E3C6' as `0x${string}`,
-  WBTC: '0x879019D2cF514d583214B83A96D9574D3565b144' as `0x${string}`,
-  WBNB: '0xc2890Cd0Bec76d3Ec1842b77a60024541A6e37DB' as `0x${string}`,
+  USDC: '0x790f76355b973097a92530Bbd59c387E2C0CbeFC' as `0x${string}`,
+  WBTC: '0xBdbA4F8d67043023df9f76604B9bC7F1f8631F29' as `0x${string}`,
+  WBNB: '0xa4D14CFa41E1c18EA348Ecec26C15F8BF2F27cff' as `0x${string}`,
   
   // Vault
-  PharosVault: '0x86AD58952202645198Be2d21f24CA5aBCE8D10F9' as `0x${string}`,
-  SwapRouter: '0x6205A429cE70F18214d4EFD00689e269d51D2497' as `0x${string}`,
+  PharosVault: '0x557D4666F39e4b10aDcE30c17B0A2A780a126FBa' as `0x${string}`,
+  SwapRouter: '0x707f59f0c4d2E836Bbe36576b0105106F50DEf68' as `0x${string}`,
   
   // Strategies
-  RWAYieldStrategy: '0xd4FB18312e5B3fA5f4C30f607779C4fC61E9bA21' as `0x${string}`,
-  SimpleLendingStrategy: '0x6ED57277FD6dB02D4796b14cEed977f417655070' as `0x${string}`,
-  RWAAdapterStrategy: '0xD5b917e89821CFa39f51efB39e0A0C02B54142CD' as `0x${string}`,
+  RWAYieldStrategy: '0xEB0e5bdfedA8E1482cd4923393945C5A7Dcdb72B' as `0x${string}`,
+  SimpleLendingStrategy: '0xc409f4C6c715d9c1dBDaFe707514d7152DfEE0a4' as `0x${string}`,
+  RWAAdapterStrategy: '0x80180e25963394B4E501792c893a10d83c664b8A' as `0x${string}`,
   
   // Advanced modules
-  PorRegistry: '0x7C12daCb2eD8894390F9aA8dA86c42eBeD83C8E7' as `0x${string}`,
-  TrancheManager: '0xCF77f7F90bAC3F0Ab17008caaf6D12f82845F82c' as `0x${string}`,
-  PharosTimelock: '0xDa360ee947930dbfC7fb1E0e837142d787083B9B' as `0x${string}`,
+  PorRegistry: '0x4d111E3564a36a51d0182550840e89051a808a13' as `0x${string}`,
+  TrancheManager: '0xE185aa2C6607A687de12201eC386023a85a0F4d9' as `0x${string}`,
+  PharosTimelock: '0x019061Ef90c085E138fE9e92495744745344E416' as `0x${string}`,
 } as const;
 
 // Pharos Mainnet Contract Addresses (for future use)
